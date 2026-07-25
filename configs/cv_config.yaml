@@ -1,0 +1,52 @@
+# ============================================
+# Configuration du modèle Computer Vision
+# ============================================
+
+model:
+  backbone: "vit_base_patch16_224"
+  fusion_type: "attention"  # mean, attention, transformer
+  max_views: 5
+  num_classes: 4  # A, B, C, D
+  num_defects: 6
+  dropout: 0.3
+  pretrained: true
+
+training:
+  batch_size: 8
+  epochs: 50
+  lr: 0.0001
+  lr_backbone: 0.00001  # LR plus faible pour le fine-tuning
+  weight_decay: 0.0001
+  freeze_backbone_epochs: 5
+  gradient_clip: 1.0
+  
+  # Data augmentation
+  augmentation:
+    enabled: true
+    random_crop: true
+    random_flip: true
+    random_rotation: 15
+    color_jitter:
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.1
+
+data:
+  image_size: 224
+  num_workers: 4
+  pin_memory: true
+  
+  # Paths
+  train_data: "data/processed/train"
+  val_data: "data/processed/val"
+  annotations_train: "data/processed/annotations_train.json"
+  annotations_val: "data/processed/annotations_val.json"
+
+paths:
+  checkpoints: "models/cv/checkpoints"
+  logs: "runs/cv"
+  mlflow_experiment: "platana-cv-grading"
+
+inference:
+  confidence_threshold: 0.7
+  defect_threshold: 0.5

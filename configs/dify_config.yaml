@@ -1,0 +1,33 @@
+# ============================================
+# Configuration Dify.ai
+# ============================================
+
+dify:
+  base_url: "http://localhost/v1"
+  api_key: "${DIFY_API_KEY}"
+  timeout: 30
+
+workflows:
+  fiche_produit:
+    key: "${DIFY_WORKFLOW_KEY_FICHE}"
+    inputs:
+      - grade
+      - category
+      - brand
+      - model
+      - price
+      - defects
+  
+  decision_reconditionnement:
+    key: "${DIFY_WORKFLOW_KEY_DECISION}"
+    inputs:
+      - grade
+      - repair_cost
+      - estimated_price
+      - original_price
+
+llm:
+  default_model: "claude-3-5-sonnet"
+  fallback_model: "gpt-4"
+  temperature: 0.3
+  max_tokens: 2000

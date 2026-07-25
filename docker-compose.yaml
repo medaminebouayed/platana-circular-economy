@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # === SERVICE CV ===
+  cv-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.cv
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models/cv/checkpoints:/app/models/cv/checkpoints:ro
+      - ./data:/app/data:ro
+    environment:
+      - MODEL_PATH=/app/models/cv/checkpoints/best_model.pt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # === SERVICE PRICING ===
+  pricing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.pricing
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./models/pricing/checkpoints:/app/models/pricing/checkpoints:ro
+    environment:
+      - MODEL_PATH=/app/models/pricing/checkpoints/model.pkl
+    depends_on:
+      - cv-service
+
+  # === ORCHESTRATEUR ===
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - CV_SERVICE_URL=http://cv-service:8001
+      - PRICING_SERVICE_URL=http://pricing-service:8002
+      - DIFY_API_URL=${DIFY_API_URL}
+      - DIFY_API_KEY=${DIFY_API_KEY}
+    depends_on:
+      - cv-service
+      - pricing-service
+
+  # === MLFLOW ===
+  mlflow:
+    image: mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlflow/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000
+
+  # === PROMETHEUS + GRAFANA ===
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin

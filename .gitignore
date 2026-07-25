@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+
+# Data
+data/raw/*
+data/processed/*
+data/external/*
+!data/**/.gitkeep
+
+# Models
+*.pt
+*.pth
+*.onnx
+models/**/checkpoints/*
+!models/**/checkpoints/.gitkeep
+
+# MLflow
+mlruns/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

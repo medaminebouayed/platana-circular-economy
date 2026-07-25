@@ -1,0 +1,49 @@
+# ============================================
+# Configuration du modèle de Pricing
+# ============================================
+
+model:
+  type: "xgboost"  # xgboost, lightgbm
+  params:
+    n_estimators: 1000
+    max_depth: 8
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    objective: "reg:squarederror"
+    eval_metric: "mape"
+
+features:
+  categorical:
+    - grade
+    - category
+    - brand
+    - model
+    - season
+  numerical:
+    - age_days
+    - original_price
+    - market_avg_price
+    - repair_cost
+    - defect_count
+  
+  # Feature engineering
+  interactions:
+    - [grade, category]
+    - [brand, age_days]
+
+training:
+  test_size: 0.2
+  random_state: 42
+  early_stopping_rounds: 50
+
+paths:
+  data: "data/processed/pricing_data.csv"
+  model: "models/pricing/checkpoints"
+  mlflow_experiment: "platana-pricing"
+
+evaluation:
+  metrics:
+    - mape
+    - rmse
+    - mae
