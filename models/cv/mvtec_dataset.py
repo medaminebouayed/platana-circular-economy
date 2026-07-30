@@ -20,7 +20,7 @@ from augmentations import get_train_transform, generate_synthetic_anomaly
 class MVTecDataset(Dataset):
     """
     Dataset MVTec AD pour la détection d'anomalies.
-    
+
     Structure:
         mvtec_ad/
         ├── bottle/
@@ -33,22 +33,19 @@ class MVTecDataset(Dataset):
         │       └── anomaly_type/
         ├── cable/
         └── ...
-    
-    Usage:
-        dataset = MVTecDataset(
-            root="data/external/mvtec_ad",
-            category="bottle",
-            split="train",
-            transform=transforms
-        )
     """
-    
+
     CATEGORIES = [
         "bottle", "cable", "capsule", "carpet", "grid", "hazelnut",
         "leather", "metal_nut", "pill", "screw", "tile", "toothbrush",
         "transistor", "wood", "zipper"
     ]
-    
+
+    # Mapping fixe catégorie -> index, utilisé pour le conditionnement FiLM.
+    # Fixe et global (pas dépendant des catégories réellement chargées) pour que
+    # l'embedding de catégorie reste cohérent entre les runs.
+    CATEGORY_TO_IDX = {cat: i for i, cat in enumerate(CATEGORIES)}
+
     DEFECT_TYPES = [
         "bent", "bent_lead", "bent_wire", "broken", "broken_large",
         "broken_small", "broken_teeth", "cable_swap", "color", "combined",
@@ -61,7 +58,7 @@ class MVTecDataset(Dataset):
         "scratch_neck", "split_teeth", "squeeze", "squeezed_teeth", "thread",
         "thread_side", "thread_top"
     ]
-    
+
     def __init__(
         self,
         root: str,
@@ -71,9 +68,10 @@ class MVTecDataset(Dataset):
     ):
         self.root = Path(root)
         self.category = category
+        self.category_idx = self.CATEGORY_TO_IDX[category]
         self.split = split
         self.transform = transform
-        self.mask_aware = True  # use mask‑aware augmentations by default for training
+        self.mask_aware = True
 
         if category not in self.CATEGORIES:
             raise ValueError(f"Catégorie '{category}' invalide. Choisir parmi: {self.CATEGORIES}")
@@ -84,84 +82,88 @@ class MVTecDataset(Dataset):
 
         self._load_samples()
 
-        # Set default transform for training if none provided
         if self.transform is None and self.split == "train" and self.mask_aware:
-            # The transform returned by get_train_transform already converts to Tensor
             self.transform = get_train_transform(self.category)
         elif self.transform is None:
-            # Simple deterministic transform for validation/test
             self.transform = lambda x: torch.tensor(np.array(x)).permute(2, 0, 1).float() / 255.0
-    
+
     def _load_samples(self):
-        """Charge tous les chemins d'images et leurs labels."""
         split_dir = self.root / self.category / self.split
-        
+
         if not split_dir.exists():
             raise FileNotFoundError(f"Dossier non trouvé: {split_dir}")
-        
-        # Parcours les sous-dossiers (good, anomaly_type_1, ...)
+
         for defect_dir in sorted(split_dir.iterdir()):
             if not defect_dir.is_dir():
                 continue
-            
-            defect_type = defect_dir.name  # "good", "scratch", "broken", etc.
+
+            defect_type = defect_dir.name
             is_anomaly = 0 if defect_type == "good" else 1
-            
+
             for img_path in sorted(defect_dir.glob("*.png")):
                 self.samples.append(str(img_path))
                 self.labels.append(is_anomaly)
                 self.defect_types.append(defect_type)
-        
+
         print(f"[INFO] MVTec {self.category}/{self.split}: {len(self.samples)} images "
               f"({sum(1 for l in self.labels if l == 0)} normal, "
               f"{sum(self.labels)} anomalie)")
-    
+
     def __len__(self) -> int:
         return len(self.samples)
-    
+
     def __getitem__(self, idx: int) -> dict:
         img_path = self.samples[idx]
         label = self.labels[idx]
         defect_type = self.defect_types[idx]
-        
-        # Charge l'image
+
         image = Image.open(img_path).convert("RGB")
-        
-        # For training, dynamically generate synthetic anomalies with a 50% probability
+
         if self.split == "train" and self.mask_aware:
             if random.random() < 0.5:
                 image, defect_type = generate_synthetic_anomaly(image)
                 label = 1
-        
+
         if self.transform:
             try:
                 image = self.transform(image)
             except Exception:
                 if isinstance(image, torch.Tensor):
-                    # Fallback: convert back to PIL if the transform expects a PIL Image
                     image = Image.fromarray((image.cpu().permute(1, 2, 0).numpy() * 255).astype('uint8'))
                 image = self.transform(image)
-        
-        # One‑hot encoding des types de défauts
+
+        # One-hot encoding des types de défauts + masque de validité
         defect_onehot = torch.zeros(len(self.DEFECT_TYPES))
+        defect_valid = 1.0  # par défaut, sample fiable pour la loss defect
+
         if label == 1:
             defect_idx = self._get_defect_index(defect_type)
             if defect_idx is not None:
                 defect_onehot[defect_idx] = 1
-        
+            else:
+                # FIX: label non reconnu -> on exclut ce sample de la loss defect
+                # au lieu de laisser un vecteur à zéro qui contredit silencieusement is_anomaly=1
+                defect_valid = 0.0
+        else:
+            # Sample "good": le vecteur à zéro est correct, mais on ne veut pas
+            # non plus forcer le defect_head à apprendre sur du bruit -> on le garde valide
+            # car "aucun défaut" est une vraie information (vecteur nul légitime).
+            defect_valid = 1.0
+
         return {
             "image": image,
             "is_anomaly": torch.tensor(label, dtype=torch.long),
             "defect_labels": defect_onehot,
+            "defect_valid": torch.tensor(defect_valid, dtype=torch.float),
             "defect_type": defect_type,
+            "category": self.category,
+            "category_idx": torch.tensor(self.category_idx, dtype=torch.long),
             "path": img_path
         }
-    
+
     def _get_defect_index(self, defect_type: str) -> Optional[int]:
-        """Map le nom du défaut à un index. Returns None if unknown."""
         if defect_type in self.DEFECT_TYPES:
             return self.DEFECT_TYPES.index(defect_type)
-        # Emit a warning for unexpected defect types
         import warnings
         warnings.warn(f"Defect type '{defect_type}' not recognized. Returning None.")
         return None
@@ -170,9 +172,10 @@ class MVTecDataset(Dataset):
 class MVTecMultiCategoryDataset(Dataset):
     """
     Dataset MVTec qui combine plusieurs catégories.
-    Utile pour le pré-entraînement sur tout MVTec.
+    Expose aussi labels/categories/category_indices agrégés,
+    nécessaires pour: le split stratifié et le sampler équilibré par catégorie.
     """
-    
+
     def __init__(
         self,
         root: str,
@@ -182,26 +185,44 @@ class MVTecMultiCategoryDataset(Dataset):
     ):
         self.datasets = []
         categories = categories or MVTecDataset.CATEGORIES
-        
+
         for cat in categories:
             try:
                 ds = MVTecDataset(root, cat, split, transform)
                 self.datasets.append(ds)
             except FileNotFoundError:
                 print(f"[WARN] Catégorie {cat} non trouvée, ignorée")
-        
-        # Calcule les offsets pour l'indexation
+
         self.offsets = [0]
         for ds in self.datasets:
             self.offsets.append(self.offsets[-1] + len(ds))
-    
+
+        # Agrégation pour le split stratifié et le sampler équilibré
+        self.labels = []
+        self.categories = []
+        self.category_indices = []
+        for ds in self.datasets:
+            self.labels.extend(ds.labels)
+            self.categories.extend([ds.category] * len(ds))
+            self.category_indices.extend([ds.category_idx] * len(ds))
+
     def __len__(self) -> int:
         return self.offsets[-1]
-    
+
     def __getitem__(self, idx: int) -> dict:
-        # Trouve le dataset correspondant
         for i, offset in enumerate(self.offsets[:-1]):
             if idx < self.offsets[i + 1]:
                 local_idx = idx - offset
                 return self.datasets[i][local_idx]
         raise IndexError(f"Index {idx} hors limites")
+
+    def category_sample_weights(self) -> torch.Tensor:
+        """
+        Calcule un poids par échantillon inversement proportionnel à la fréquence
+        de sa catégorie, pour un WeightedRandomSampler équilibré.
+        Évite que 'bottle' (209 images) domine 'screw' (potentiellement moins d'images).
+        """
+        from collections import Counter
+        counts = Counter(self.categories)
+        weights = [1.0 / counts[cat] for cat in self.categories]
+        return torch.tensor(weights, dtype=torch.double)

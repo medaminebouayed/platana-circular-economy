@@ -1,0 +1,197 @@
+<div class="pricing-layout">
+
+  <!-- LEFT PANEL: Form -->
+  <div class="pricing-left">
+
+    <!-- Quick Presets -->
+    <div class="platana-card preset-card">
+      <div class="platana-card-header">
+        <span class="platana-card-title">⚡ Produits pré-configurés</span>
+      </div>
+      <div class="preset-grid">
+        <button class="preset-btn" *ngFor="let p of presets" (click)="applyPreset(p)">
+          {{ p.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Input Form -->
+    <div class="platana-card">
+      <div class="platana-card-header">
+        <span class="platana-card-title">Paramètres produit</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Marque</label>
+          <input type="text" [(ngModel)]="form.brand" class="form-input" placeholder="Samsung, Apple...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modèle</label>
+          <input type="text" [(ngModel)]="form.model" class="form-input" placeholder="Galaxy S22, iPhone 13...">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Catégorie</label>
+          <select [(ngModel)]="form.category" class="form-select">
+            <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Grade d'État</label>
+          <div class="grade-selector">
+            <button *ngFor="let g of grades" class="grade-btn" [class.active]="form.grade === g"
+              [class]="'grade-btn-' + g.toLowerCase()" (click)="form.grade = g">
+              {{ g }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Prix d'Achat Origine (€)</label>
+          <input type="number" [(ngModel)]="form.original_price" class="form-input" min="0" step="10" placeholder="Prix neuf">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Coût de Remise en État (€)</label>
+          <input type="number" [(ngModel)]="form.repair_cost" class="form-input" min="0" step="5" placeholder="0 si aucun">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Âge du produit (jours)</label>
+          <input type="number" [(ngModel)]="form.age_days" class="form-input" min="1" step="30" placeholder="365">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Saisonnalité</label>
+          <select [(ngModel)]="form.season" class="form-select">
+            <option *ngFor="let s of seasons" [value]="s.value">{{ s.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 1rem;" (click)="estimate()" [disabled]="isLoading">
+        <svg *ngIf="!isLoading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+          <line x1="7" y1="7" x2="7.01" y2="7"></line>
+        </svg>
+        <svg *ngIf="isLoading" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        {{ isLoading ? 'Calcul en cours...' : 'Prédire le prix optimal' }}
+      </button>
+    </div>
+
+    <!-- History -->
+    <div class="platana-card" *ngIf="history.length > 0">
+      <div class="platana-card-header">
+        <span class="platana-card-title">Historique des estimations</span>
+      </div>
+      <div class="history-list">
+        <div class="history-item" *ngFor="let h of history">
+          <div class="history-left">
+            <span class="history-product">{{ h.request.brand }} {{ h.request.model }}</span>
+            <span class="history-grade badge" [class]="'badge-grade-' + h.request.grade.toLowerCase()">Grade {{ h.request.grade }}</span>
+          </div>
+          <span class="history-price">{{ h.result.predicted_price | number:'1.0-0' }} €</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Result -->
+  <div class="pricing-right">
+
+    <!-- Empty State -->
+    <div class="result-placeholder" *ngIf="!result && !isLoading">
+      <span class="placeholder-emoji">💰</span>
+      <h3>Résultat de Pricing</h3>
+      <p>Renseignez les paramètres du produit et lancez la prédiction pour obtenir le prix optimal de revente.</p>
+    </div>
+
+    <!-- Loading State -->
+    <div class="result-placeholder" *ngIf="isLoading">
+      <div class="loading-spinner-large"></div>
+      <h3>Calcul en cours...</h3>
+      <p>Modèle Gradient Boosting en prédiction</p>
+    </div>
+
+    <!-- Result -->
+    <ng-container *ngIf="result && !isLoading">
+
+      <!-- Main Price Display -->
+      <div class="price-hero">
+        <div class="price-label">Prix de revente optimal estimé</div>
+        <div class="price-value">{{ result.predicted_price | number:'1.0-0' }}<span class="price-currency"> €</span></div>
+        <div class="price-interval">
+          Intervalle de confiance : {{ result.confidence_interval[0] | number:'1.0-0' }} € — {{ result.confidence_interval[1] | number:'1.0-0' }} €
+        </div>
+
+        <!-- Donut ratio -->
+        <div class="ratio-block">
+          <svg viewBox="0 0 80 80" class="ratio-svg">
+            <circle cx="40" cy="40" r="32" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+            <circle cx="40" cy="40" r="32" fill="none" [attr.stroke]="getPriceRatioColor()" stroke-width="8"
+              [attr.stroke-dasharray]="(getPriceRatioPct() / 100) * 201.1 + ' 201.1'"
+              stroke-dashoffset="50.3" stroke-linecap="round"/>
+            <text x="40" y="37" text-anchor="middle" class="ratio-pct-svg">{{ getPriceRatioPct() }}%</text>
+            <text x="40" y="49" text-anchor="middle" class="ratio-label-svg">du neuf</text>
+          </svg>
+          <div class="ratio-details">
+            <div class="ratio-row">
+              <span>Prix d'origine</span>
+              <strong>{{ form.original_price | number }} €</strong>
+            </div>
+            <div class="ratio-row">
+              <span>Frais remise en état</span>
+              <strong>— {{ form.repair_cost || 0 }} €</strong>
+            </div>
+            <div class="ratio-row" style="border-top: 1px solid var(--light-border); padding-top: 0.5rem; margin-top: 0.25rem;">
+              <span>Marge nette estimée</span>
+              <strong [style.color]="getMargin() > 0 ? '#10b981' : '#ef4444'">{{ getMargin() | number }} €</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation Block -->
+      <div class="platana-card explanation-card">
+        <div class="platana-card-header">
+          <span class="platana-card-title">💡 Explication du Modèle</span>
+        </div>
+        <p class="explanation-text">{{ result.explanation }}</p>
+
+        <!-- Factors breakdown -->
+        <div class="factor-list" style="margin-top: 1rem;">
+          <div class="factor-item">
+            <span class="factor-dot green"></span>
+            <span>Grade {{ form.grade }} ({{ getGradeLabel(form.grade) }})</span>
+          </div>
+          <div class="factor-item">
+            <span class="factor-dot blue"></span>
+            <span>Âge {{ form.age_days }} jours</span>
+          </div>
+          <div class="factor-item" *ngIf="(form.repair_cost || 0) > 0">
+            <span class="factor-dot yellow"></span>
+            <span>Remise en état {{ form.repair_cost }}€</span>
+          </div>
+          <div class="factor-item">
+            <span class="factor-dot purple"></span>
+            <span>Catégorie {{ form.category }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA to next step -->
+      <div class="next-step-row" style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+        <a routerLink="/product-sheet" class="btn btn-primary" style="flex:1; justify-content: center;">
+          Générer la fiche produit →
+        </a>
+      </div>
+    </ng-container>
+  </div>
+</div>

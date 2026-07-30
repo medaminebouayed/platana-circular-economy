@@ -108,9 +108,10 @@ def _generate_product_image(grade: str, view_idx: int, category: str) -> Image.I
             x2, y2 = x1 + random.randint(30, 100), y1 + random.randint(-20, 20)
             draw.line([(x1, y1), (x2, y2)], fill=(100, 100, 100), width=2)
         # Petit choc
-        draw.ellipse([random.randint(200, 300), random.randint(200, 300),
-                      random.randint(220, 320), random.randint(220, 320)],
-                     fill=(80, 80, 80))
+        cx = random.randint(200, 300)
+        cy = random.randint(200, 300)
+        cr = random.randint(10, 20)
+        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=(80, 80, 80))
     elif grade == "D":
         # Dommages importants
         # Fissure
@@ -144,4 +145,4 @@ def _generate_defects(grade: str) -> list:
 if __name__ == "__main__":
     import sys
     num = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-    generate_dummy_data(num_products=num)
+    generate_dummy_dataset(num_products=num)

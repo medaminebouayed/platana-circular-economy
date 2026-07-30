@@ -1,0 +1,320 @@
+/* Dashboard specific styles */
+
+/* KPI Cards */
+.kpi-card {
+  background: var(--light-panel);
+  border: 1px solid var(--light-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  opacity: 0;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.kpi-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--light-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-icon-green  { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.kpi-icon-blue   { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; }
+.kpi-icon-emerald{ background: rgba(5, 150, 105, 0.1);  color: #059669; }
+.kpi-icon-purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.kpi-icon-yellow { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.kpi-icon-orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--light-text);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.kpi-unit {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--light-text-muted);
+}
+
+.kpi-change {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kpi-change.positive { color: #10b981; }
+.kpi-change.negative { color: #ef4444; }
+
+.kpi-period {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--light-text-muted);
+}
+
+/* Bar Chart */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  height: 150px;
+  padding-bottom: 0.5rem;
+}
+
+.bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  height: 100%;
+}
+
+.bars {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: 100%;
+}
+
+.bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 3px;
+}
+
+.bar-valorise { background: var(--primary); }
+.bar-detruit  { background: var(--accent-red); opacity: 0.7; }
+
+.bar-label {
+  font-size: 0.72rem;
+  color: var(--light-text-muted);
+  font-weight: 500;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--light-border);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--light-text-muted);
+  font-weight: 500;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Donut Chart */
+.donut-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.donut-svg {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.donut-center-num {
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--light-text);
+  font-family: var(--font-display);
+}
+
+.donut-center-label {
+  font-size: 8px;
+  fill: var(--light-text-muted);
+  font-family: var(--font-body);
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.donut-grade {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--light-text);
+  flex: 1;
+}
+
+.donut-count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+.donut-pct {
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: 36px;
+  text-align: right;
+}
+
+/* Grade Badges */
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.grade-a { background: rgba(16, 185, 129, 0.15); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3); }
+.grade-b { background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.3); }
+.grade-c { background: rgba(245, 158, 11, 0.15); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3); }
+.grade-d { background: rgba(239, 68, 68, 0.15);  color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* Channel Breakdown List */
+.channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.channel-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.channel-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+.channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.channel-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: var(--light-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.channel-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent-blue));
+  border-radius: 4px;
+  transition: width 1s ease;
+}
+
+.channel-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--light-text-muted);
+}
+
+.channel-revenue {
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+/* RSE Impact Block */
+.rse-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rse-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.rse-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+.rse-label {
+  font-size: 0.78rem;
+  color: var(--light-text-muted);
+}
+
+.rse-progress {
+  width: 100%;
+  height: 4px;
+  background: var(--light-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+.rse-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s ease;
+}

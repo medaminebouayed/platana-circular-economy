@@ -1,0 +1,168 @@
+<!-- LOGISTICS PAGE -->
+
+<!-- Global Stats Row -->
+<div class="grid-4" style="margin-bottom: 2rem;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9;">📦</div>
+    <div class="stat-value">{{ globalStats.totalPending }}</div>
+    <div class="stat-label">Produits en attente</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">🔧</div>
+    <div class="stat-value">{{ globalStats.forRecondition }}</div>
+    <div class="stat-label">À reconditionner</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">🛍️</div>
+    <div class="stat-value">{{ globalStats.forResale }}</div>
+    <div class="stat-label">Revente directe</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">♻️</div>
+    <div class="stat-value">{{ globalStats.forRecycle }}</div>
+    <div class="stat-label">Recyclage D3E</div>
+  </div>
+</div>
+
+<!-- Optimization Trigger -->
+<div class="platana-card optimizer-card" style="margin-bottom: 2rem;">
+  <div class="optimizer-content">
+    <div class="optimizer-left">
+      <h3>Optimisation Logistique (Google OR-Tools)</h3>
+      <p>Lance l'algorithme d'allocation combinatoire pour minimiser les coûts de transport et maximiser la valorisation des produits en attente.</p>
+    </div>
+    <div class="optimizer-right">
+      <div *ngIf="optimizationDone" class="opt-badge-done">✅ Allocation optimale calculée</div>
+      <button class="btn btn-primary" (click)="runOptimization()" [disabled]="isOptimizing || optimizationDone">
+        <svg *ngIf="!isOptimizing && !optimizationDone" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span *ngIf="isOptimizing" class="spin-inline"></span>
+        {{ isOptimizing ? 'Optimisation en cours...' : optimizationDone ? 'Réoptimiser' : 'Lancer l\'optimisation' }}
+      </button>
+    </div>
+  </div>
+  <div *ngIf="isOptimizing" class="optimizer-progress">
+    <div class="optimizer-bar"></div>
+  </div>
+</div>
+
+<!-- Workshops and Allocations side by side -->
+<div class="logistics-grid">
+
+  <!-- Workshop Network Map -->
+  <div class="platana-card">
+    <div class="platana-card-header">
+      <span class="platana-card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="10" r="3"></circle>
+          <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 14 8 14s8-8.5 8-14a8 8 0 0 0-8-8z"></path>
+        </svg>
+        Ateliers de Reconditionnement
+      </span>
+    </div>
+    <div class="workshop-list">
+      <div class="workshop-card" *ngFor="let w of workshops" [class.selected]="selectedWorkshop?.id === w.id" (click)="selectWorkshop(w)">
+        <div class="workshop-header">
+          <div class="workshop-name-block">
+            <span class="workshop-name">{{ w.name }}</span>
+            <span class="workshop-city">{{ w.city }}, {{ w.region }}</span>
+          </div>
+          <span [class]="getStatusBadgeClass(w.status)">{{ getStatusLabel(w.status) }}</span>
+        </div>
+
+        <div class="workshop-metrics">
+          <div class="metric">
+            <span class="metric-label">Taux d'occupation</span>
+            <div class="metric-bar-wrap">
+              <div class="metric-bar" [style.width.%]="w.occupancy" [style.background]="getOccupancyColor(w.occupancy)"></div>
+            </div>
+            <span class="metric-value" [style.color]="getOccupancyColor(w.occupancy)">{{ w.occupancy }}%</span>
+          </div>
+        </div>
+
+        <div class="workshop-tags">
+          <span class="workshop-tag" *ngFor="let s of w.specialties">{{ s }}</span>
+        </div>
+
+        <!-- Expanded details -->
+        <div class="workshop-expanded" *ngIf="selectedWorkshop?.id === w.id">
+          <div class="expanded-grid">
+            <div class="expanded-item">
+              <span class="exp-label">Capacité totale</span>
+              <span class="exp-value">{{ w.capacity }} produits/mois</span>
+            </div>
+            <div class="expanded-item">
+              <span class="exp-label">Coût moyen remise</span>
+              <span class="exp-value">{{ w.avgCost }} €/produit</span>
+            </div>
+            <div class="expanded-item">
+              <span class="exp-label">Distance depuis Paris</span>
+              <span class="exp-value">{{ w.distance }} km</span>
+            </div>
+            <div class="expanded-item">
+              <span class="exp-label">Disponibilité</span>
+              <span class="exp-value" [style.color]="getOccupancyColor(w.occupancy)">{{ w.capacity - Math.round(w.capacity * w.occupancy / 100) }} créneaux libres</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Allocation Table -->
+  <div class="platana-card">
+    <div class="platana-card-header">
+      <span class="platana-card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="3" width="15" height="13"></rect>
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+          <circle cx="5.5" cy="18.5" r="2.5"></circle>
+          <circle cx="18.5" cy="18.5" r="2.5"></circle>
+        </svg>
+        Plan d'Allocation & Expédition
+      </span>
+      <div class="cost-summary">
+        <span class="cost-total">{{ globalStats.totalTransportCost | number }} € coût transport total</span>
+      </div>
+    </div>
+
+    <div class="platana-table-container">
+      <table class="platana-table">
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Décision</th>
+            <th>Atelier / Canal</th>
+            <th>Délai</th>
+            <th>Coût</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of allocations">
+            <td>
+              <div class="alloc-product">
+                <code style="font-size: 0.72rem; color: var(--light-text-muted); display: block;">{{ a.productId }}</code>
+                <strong style="font-size: 0.85rem;">{{ a.productName }}</strong>
+              </div>
+            </td>
+            <td><span [class]="getDecisionClass(a.decision)">{{ getDecisionLabel(a.decision) }}</span></td>
+            <td>
+              <div style="font-size: 0.85rem;">
+                <span *ngIf="a.workshop" style="display: block; font-weight: 500; color: var(--light-text);">{{ a.workshop }}</span>
+                <span style="color: var(--light-text-muted); font-size: 0.78rem;">→ {{ a.channel }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="delay-badge">{{ a.estimatedDelay }}j</span>
+            </td>
+            <td>
+              <strong>{{ a.totalCost }} €</strong>
+              <span style="display: block; font-size: 0.72rem; color: var(--light-text-muted);">transport: {{ a.transportCost }}€</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

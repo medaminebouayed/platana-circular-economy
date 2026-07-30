@@ -1,0 +1,169 @@
+<div class="sheet-layout">
+
+  <!-- LEFT PANEL: Inputs -->
+  <div class="sheet-left">
+    <div class="platana-card">
+      <div class="platana-card-header">
+        <span class="platana-card-title">Paramètres du produit</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Marque</label>
+          <input type="text" [(ngModel)]="form.brand" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modèle</label>
+          <input type="text" [(ngModel)]="form.model" class="form-input">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Catégorie</label>
+          <select [(ngModel)]="form.category" class="form-select">
+            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Grade</label>
+          <div class="grade-pills">
+            <button *ngFor="let g of grades" class="grade-pill" [class.active]="form.grade === g"
+              [class]="'pill-' + g.toLowerCase()" (click)="form.grade = g">{{ g }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Prix Origine (€)</label>
+          <input type="number" [(ngModel)]="form.originalPrice" class="form-input" min="0" step="10">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prix Estimé Revente (€)</label>
+          <input type="number" [(ngModel)]="form.predictedPrice" class="form-input" min="0" step="10">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Défauts détectés</label>
+        <div class="defect-tags">
+          <button *ngFor="let d of defectOptions" class="defect-tag" [class.selected]="isDefectSelected(d.value)" (click)="toggleDefect(d.value)">
+            {{ d.label }}
+          </button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; padding: 1rem; margin-top: 0.5rem;" (click)="generate()" [disabled]="isLoading">
+        <svg *ngIf="!isLoading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+        <svg *ngIf="isLoading" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        {{ isLoading ? 'Génération IA en cours...' : 'Générer la Fiche Produit' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Result / Preview -->
+  <div class="sheet-right">
+
+    <!-- Empty State -->
+    <div class="result-placeholder" *ngIf="!result && !isLoading">
+      <span class="placeholder-emoji">📄</span>
+      <h3>Aperçu de la Fiche Produit</h3>
+      <p>Renseignez les informations du produit et lancez la génération pour obtenir une fiche prête à publier sur vos canaux de revente.</p>
+    </div>
+
+    <!-- Loading State -->
+    <div class="result-placeholder" *ngIf="isLoading">
+      <div class="loading-spinner-large"></div>
+      <h3>Génération IA en cours...</h3>
+      <p>LLM génératif en rédaction<br>Optimisation pour canaux de revente</p>
+    </div>
+
+    <!-- Generated Sheet Preview -->
+    <ng-container *ngIf="result && !isLoading">
+
+      <!-- Decision Banner -->
+      <div class="decision-banner" [style.border-left-color]="getDecisionColor()" [style.background]="getDecisionColor() + '12'">
+        <span class="decision-icon">{{ getDecisionIcon() }}</span>
+        <div class="decision-text">
+          <span class="decision-label" [style.color]="getDecisionColor()">{{ getDecisionLabel() }}</span>
+          <span class="decision-rationale">{{ result.decision_rationale }}</span>
+        </div>
+      </div>
+
+      <!-- Product Listing Card Preview -->
+      <div class="platana-card listing-card">
+        <div class="listing-header">
+          <div>
+            <p class="listing-id" *ngIf="result.product_id">ID : {{ result.product_id }}</p>
+            <h2 class="listing-title">{{ result.title }}</h2>
+          </div>
+          <div class="listing-price-block">
+            <div class="listing-price">{{ form.predictedPrice }} €</div>
+            <div class="listing-price-compare">Prix neuf : {{ form.originalPrice }} €</div>
+          </div>
+        </div>
+
+        <!-- AI Description with Typewriter Effect -->
+        <div class="listing-desc">
+          <span *ngIf="displayedText.length < result.description.length; else fullText">
+            {{ displayedText }}<span class="typing-cursor">|</span>
+          </span>
+          <ng-template #fullText>{{ result.description }}</ng-template>
+        </div>
+
+        <!-- Highlights -->
+        <div class="listing-highlights">
+          <h4>✅ Points forts</h4>
+          <ul>
+            <li *ngFor="let h of result.highlights">{{ h }}</li>
+          </ul>
+        </div>
+
+        <!-- Attention Points -->
+        <div class="listing-attention" *ngIf="result.attention_points.length > 0">
+          <h4>⚠️ Points d'attention</h4>
+          <ul>
+            <li *ngFor="let a of result.attention_points">{{ a }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Channel Sync Section -->
+      <div class="platana-card channel-sync-card">
+        <div class="platana-card-header">
+          <span class="platana-card-title">Canaux recommandés</span>
+          <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.82rem;" (click)="simulatePublish()" [disabled]="isPublishing || publishedChannels.length > 0">
+            {{ publishedChannels.length > 0 ? '✓ Publiés' : isPublishing ? 'Publication...' : 'Publier sur tous' }}
+          </button>
+        </div>
+
+        <div class="channel-steps">
+          <div class="step-item" *ngFor="let step of publishSteps; else noSteps" [class]="'step-' + step.status">
+            <div class="step-icon">
+              <span *ngIf="step.status === 'done'">✓</span>
+              <span *ngIf="step.status === 'running'" class="step-spinner"></span>
+              <span *ngIf="step.status === 'pending'">○</span>
+            </div>
+            <span class="step-label">{{ step.label }}</span>
+            <span class="step-status-text">
+              <span *ngIf="step.status === 'done'">Publié</span>
+              <span *ngIf="step.status === 'running'">En cours...</span>
+              <span *ngIf="step.status === 'pending'">En attente</span>
+            </span>
+          </div>
+          <ng-template #noSteps>
+            <div class="channel-tags">
+              <span class="channel-tag" *ngFor="let ch of result.recommended_channels">{{ ch }}</span>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+
+    </ng-container>
+  </div>
+</div>

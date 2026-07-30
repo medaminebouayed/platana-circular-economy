@@ -1,0 +1,502 @@
+/* Grading Component Styles */
+
+.grading-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 992px) {
+  .grading-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Upload Zone */
+.upload-zone {
+  border: 2px dashed var(--light-border);
+  border-radius: var(--radius-md);
+  background: var(--light-panel);
+  transition: all 0.2s ease;
+  min-height: 220px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.upload-zone.drag-active {
+  border-color: var(--primary);
+  background: rgba(16, 185, 129, 0.03);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  cursor: pointer;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.upload-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-md);
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.upload-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+.upload-subtitle {
+  font-size: 0.88rem;
+  color: var(--light-text-muted);
+}
+
+.upload-link {
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-hint {
+  font-size: 0.75rem;
+  color: var(--light-text-muted);
+  margin-top: 0.25rem;
+}
+
+/* Preview Grid */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 0.4rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+}
+
+.preview-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: white;
+}
+
+.remove-btn {
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: white;
+  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  font-size: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attention-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 2px;
+  max-width: 100%;
+  transition: width 0.5s ease;
+}
+
+.preview-add {
+  aspect-ratio: 1;
+  border: 2px dashed var(--light-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--light-text-muted);
+  transition: all 0.2s;
+}
+
+.preview-add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+/* Action Row */
+.action-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.action-row .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* Method Info Card */
+.method-card {
+  background: var(--light-panel);
+  border: 1px solid var(--light-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+
+.method-card h4 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--light-text);
+  margin-bottom: 0.75rem;
+}
+
+.method-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.method-card li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--light-text-muted);
+}
+
+.method-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.method-dot.green { background: #10b981; }
+.method-dot.blue  { background: #0ea5e9; }
+.method-dot.yellow{ background: #f59e0b; }
+.method-dot.purple{ background: #8b5cf6; }
+
+/* Result placeholder */
+.result-placeholder {
+  min-height: 350px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem;
+  background: var(--light-panel);
+  border: 1px dashed var(--light-border);
+  border-radius: var(--radius-md);
+  gap: 1rem;
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+}
+
+.result-placeholder h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+.result-placeholder p {
+  font-size: 0.85rem;
+  color: var(--light-text-muted);
+  max-width: 300px;
+  line-height: 1.6;
+}
+
+/* Loading Spinner */
+.loading-spinner-large {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(16, 185, 129, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Grade Hero Card */
+.grade-hero {
+  background: var(--light-panel);
+  border: 2px solid;
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  animation: fadeIn 0.4s ease forwards;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+}
+
+.grade-badge-large {
+  align-self: center;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  font-family: var(--font-display);
+}
+
+.grade-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.grade-description {
+  font-size: 0.85rem;
+  color: var(--light-text-muted);
+  text-align: center;
+  margin-top: -0.25rem;
+}
+
+.confidence-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.confidence-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--light-text-muted);
+  white-space: nowrap;
+}
+
+.confidence-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--light-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.confidence-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease;
+}
+
+.confidence-pct {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--light-text);
+  white-space: nowrap;
+}
+
+.grade-meta {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meta-badge {
+  padding: 0.25rem 0.6rem;
+  background: var(--light-bg);
+  border: 1px solid var(--light-border);
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  color: var(--light-text-muted);
+  font-weight: 500;
+}
+
+/* Probability Bars */
+.prob-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.prob-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.prob-grade {
+  width: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.grade-label-a { color: #059669; }
+.grade-label-b { color: #0284c7; }
+.grade-label-c { color: #d97706; }
+.grade-label-d { color: #dc2626; }
+
+.prob-bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: var(--light-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.prob-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease;
+}
+
+.prob-bar-a { background: #10b981; }
+.prob-bar-b { background: #0ea5e9; }
+.prob-bar-c { background: #f59e0b; }
+.prob-bar-d { background: #ef4444; }
+
+.prob-pct {
+  width: 36px;
+  text-align: right;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+/* Defect List */
+.defect-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.defect-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.defect-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.defect-icon { font-size: 0.9rem; }
+
+.defect-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--light-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.defect-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.defect-bar-wrap {
+  width: 80px;
+  height: 6px;
+  background: var(--light-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.defect-bar {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.defect-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-red);
+  width: 32px;
+  text-align: right;
+}
+
+/* No defect Card */
+.no-defect-card {
+  text-align: center;
+}
+
+.no-defect-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.no-defect-icon { font-size: 1.4rem; }
+
+.no-defect-content p {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #059669;
+}
+
+/* Next Step Row */
+.next-step-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}

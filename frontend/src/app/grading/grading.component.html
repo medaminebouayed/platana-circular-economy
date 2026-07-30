@@ -1,0 +1,252 @@
+<div class="grading-layout">
+
+  <!-- LEFT PANEL: Upload -->
+  <div class="grading-left">
+
+    <!-- Product Meta Fields -->
+    <div class="platana-card" style="margin-bottom: 1.5rem;">
+      <div class="platana-card-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+        <span class="platana-card-title" style="font-size: 0.95rem;">Informations du Produit</span>
+      </div>
+      <div class="grid-2" style="gap: 0.75rem; margin-bottom: 0.75rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.75rem;">Marque</label>
+          <input type="text" [(ngModel)]="brand" class="form-input" style="padding: 0.5rem 0.75rem;" placeholder="Ex: Apple">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.75rem;">Modèle</label>
+          <input type="text" [(ngModel)]="model" class="form-input" style="padding: 0.5rem 0.75rem;" placeholder="Ex: iPhone 13 Pro">
+        </div>
+      </div>
+      <div class="grid-3" style="gap: 0.75rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.75rem;">Catégorie</label>
+          <select [(ngModel)]="category" class="form-select" style="padding: 0.5rem 0.75rem;">
+            <option value="smartphone">Smartphone</option>
+            <option value="laptop">Ordinateur portable</option>
+            <option value="tablet">Tablette</option>
+            <option value="headphones">Casque / Écouteurs</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.75rem;">Prix d'origine (€)</label>
+          <input type="number" [(ngModel)]="originalPrice" class="form-input" style="padding: 0.5rem 0.75rem;" placeholder="Ex: 999">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.75rem;">ID Produit</label>
+          <input type="text" [(ngModel)]="productId" class="form-input" style="padding: 0.5rem 0.75rem;" placeholder="Auto-généré">
+        </div>
+      </div>
+    </div>
+
+    <!-- Drag and Drop Zone -->
+    <div class="upload-zone" [class.drag-active]="dragOver" [class.has-files]="uploadedFiles.length > 0"
+      (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
+      <input type="file" id="fileInput" multiple accept="image/*" (change)="onFileSelect($event)" style="display:none">
+
+      <div *ngIf="uploadedFiles.length === 0" class="upload-placeholder" (click)="fileInput.click()">
+        <div class="upload-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </div>
+        <p class="upload-title">Déposez vos photos produit ici</p>
+        <p class="upload-subtitle">ou <span class="upload-link">parcourez vos fichiers</span></p>
+        <p class="upload-hint">JPG, PNG, WEBP • 1 à 5 vues multi-angles</p>
+      </div>
+
+      <!-- Preview Grid -->
+      <div *ngIf="uploadedFiles.length > 0" class="preview-grid">
+        <div class="preview-item" *ngFor="let url of previewUrls; let i = index">
+          <img [src]="url" [alt]="'Vue ' + (i + 1)">
+          <div class="preview-overlay">
+            <span class="preview-label">Vue {{ i + 1 }}</span>
+            <button class="remove-btn" (click)="removeFile(i)">✕</button>
+          </div>
+          <!-- Attention weight bar -->
+          <div *ngIf="result" class="attention-bar" [style.width.%]="getAttentionWeight(i)" [title]="'Attention: ' + getAttentionWeight(i).toFixed(1) + '%'"></div>
+        </div>
+        <div class="preview-add" *ngIf="uploadedFiles.length < 5" (click)="fileInput.click()">
+          <span>+ Ajouter vue</span>
+        </div>
+      </div>
+
+      <!-- Hidden file input -->
+      <input #fileInput type="file" multiple accept="image/*" (change)="onFileSelect($event)" style="display:none">
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-row">
+      <button class="btn btn-secondary" (click)="reset()" [disabled]="isLoading">
+        Réinitialiser
+      </button>
+      <button class="btn btn-primary" (click)="analyze()" [disabled]="uploadedFiles.length === 0 || isLoading">
+        <svg *ngIf="!isLoading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <svg *ngIf="isLoading" class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        {{ isLoading ? 'Analyse en cours...' : 'Lancer l\'analyse IA' }}
+      </button>
+    </div>
+
+    <!-- Method Info Card -->
+    <div class="method-card">
+      <h4>Pipeline CV Multi-Vues</h4>
+      <ul>
+        <li><span class="method-dot green"></span>Vision Transformer (ViT) fine-tuné</li>
+        <li><span class="method-dot blue"></span>Fusion attention multi-images</li>
+        <li><span class="method-dot yellow"></span>Détection multi-défauts par tête dédiée</li>
+        <li><span class="method-dot purple"></span>Classification A/B/C/D + probabilités</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Results -->
+  <div class="grading-right">
+
+    <!-- Waiting State -->
+    <div class="result-placeholder" *ngIf="!result && !isLoading">
+      <div class="placeholder-icon">🔍</div>
+      <h3>Résultats d'analyse</h3>
+      <p>Uploadez 1 à 5 photos du produit et lancez l'analyse pour obtenir le grade, les défauts détectés et les probabilités par classe.</p>
+    </div>
+
+    <!-- Loading State -->
+    <div class="result-placeholder" *ngIf="isLoading">
+      <div class="loading-spinner-large"></div>
+      <h3>Analyse IA en cours...</h3>
+      <p>Modèle Vision Transformer en inférence<br>Fusion multi-vues & attention map</p>
+    </div>
+
+    <!-- RESULT PANEL -->
+    <ng-container *ngIf="result && !isLoading">
+
+      <!-- Grade Hero Card -->
+      <div class="grade-hero" [style.border-color]="getGradeColor(result.grade)" [style.--grade-color]="getGradeColor(result.grade)">
+        <div class="grade-badge-large" [style.background]="getGradeColor(result.grade) + '20'" [style.color]="getGradeColor(result.grade)" [style.border-color]="getGradeColor(result.grade)">
+          {{ result.grade }}
+        </div>
+        <div class="grade-info">
+          <h2 class="grade-title" [style.color]="getGradeColor(result.grade)">Grade {{ result.grade }}</h2>
+          <p class="grade-description">{{ getGradeLabel(result.grade) }}</p>
+          <div class="confidence-row">
+            <span class="confidence-label">Confiance IA</span>
+            <div class="confidence-bar-wrap">
+              <div class="confidence-bar" [style.width.%]="getConfidencePct()" [style.background]="getGradeColor(result.grade)"></div>
+            </div>
+            <span class="confidence-pct">{{ getConfidencePct() }}%</span>
+          </div>
+        </div>
+        <div class="grade-meta">
+          <span class="meta-badge">{{ result.num_views_used }} vue(s)</span>
+          <span class="meta-badge">{{ result.processing_time_ms | number:'1.0-0' }} ms</span>
+          <span class="meta-badge" *ngIf="result.product_id">ID: {{ result.product_id }}</span>
+        </div>
+      </div>
+
+      <!-- Pricing Prediction Result (Immediate Display) -->
+      <div class="platana-card pricing-result-card" *ngIf="pricingResult || isPricingLoading" style="border-left: 4px solid var(--primary); background: #fafbfc;">
+        <div class="platana-card-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+          <span class="platana-card-title" style="font-size: 0.95rem; color: var(--light-text); display: flex; align-items: center; gap: 0.5rem;">
+            💰 Prix de Revente Estimé (Moteur IA)
+          </span>
+          <span class="badge badge-success" *ngIf="pricingResult && !isPricingLoading">Calculé</span>
+        </div>
+        
+        <div *ngIf="isPricingLoading" style="display: flex; align-items: center; gap: 0.75rem; padding: 1rem 0;">
+          <div class="spinner" style="width: 20px; height: 20px; border: 2px solid rgba(16,185,129,0.2); border-top-color: var(--primary); border-radius: 50%;"></div>
+          <span style="font-size: 0.85rem; color: var(--light-text-muted);">Estimation de la valeur résiduelle en cours...</span>
+        </div>
+
+        <div *ngIf="pricingResult && !isPricingLoading">
+          <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 2rem; font-weight: 800; color: var(--primary); font-family: var(--font-display);">
+              {{ pricingResult.predicted_price }} €
+            </span>
+            <span style="font-size: 0.82rem; color: var(--light-text-muted);">
+              ({{ (pricingResult.price_ratio * 100).toFixed(0) }}% de la valeur d'origine)
+            </span>
+          </div>
+
+          <div style="font-size: 0.85rem; color: var(--light-text); line-height: 1.5; margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(16, 185, 129, 0.04); border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.08);">
+            {{ pricingResult.explanation }}
+          </div>
+
+          <div style="display: flex; gap: 1rem; border-top: 1px dashed var(--light-border); padding-top: 0.75rem;">
+            <div>
+              <span style="display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--light-text-muted); font-weight: 600;">Intervalle de Confiance</span>
+              <span style="font-size: 0.88rem; font-weight: 700; color: var(--light-text);">
+                {{ pricingResult.confidence_interval[0] }} € - {{ pricingResult.confidence_interval[1] }} €
+              </span>
+            </div>
+            <div>
+              <span style="display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--light-text-muted); font-weight: 600;">Décote Appliquée</span>
+              <span style="font-size: 0.88rem; font-weight: 700; color: #dc2626;">
+                -{{ (100 - pricingResult.price_ratio * 100).toFixed(0) }}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grade Probabilities Bar Chart -->
+      <div class="platana-card">
+        <div class="platana-card-header">
+          <span class="platana-card-title">Distribution probabiliste</span>
+        </div>
+        <div class="prob-bars">
+          <div class="prob-row" *ngFor="let g of ['A','B','C','D']">
+            <span class="prob-grade" [class]="'grade-label-' + g.toLowerCase()">{{ g }}</span>
+            <div class="prob-bar-wrap">
+              <div class="prob-bar" [style.width.%]="getProbPct(g)" [class]="'prob-bar-' + g.toLowerCase()"></div>
+            </div>
+            <span class="prob-pct">{{ getProbPct(g) }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detected Defects -->
+      <div class="platana-card" *ngIf="result.detected_defects.length > 0">
+        <div class="platana-card-header">
+          <span class="platana-card-title">Défauts détectés ({{ result.detected_defects.length }})</span>
+        </div>
+        <div class="defect-list">
+          <div class="defect-item" *ngFor="let defect of result.detected_defects">
+            <div class="defect-left">
+              <span class="defect-icon">⚠️</span>
+              <span class="defect-name">{{ defectLabels[defect.type] || defect.type }}</span>
+            </div>
+            <div class="defect-right">
+              <div class="defect-bar-wrap">
+                <div class="defect-bar" [style.width.%]="defect.probability * 100"></div>
+              </div>
+              <span class="defect-pct">{{ (defect.probability * 100) | number:'1.0-0' }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- No Defects Found -->
+      <div class="platana-card no-defect-card" *ngIf="result.detected_defects.length === 0">
+        <div class="no-defect-content">
+          <span class="no-defect-icon">✅</span>
+          <p>Aucun défaut détecté — Produit en excellent état esthétique</p>
+        </div>
+      </div>
+
+      <!-- Action links to next steps -->
+      <div class="next-step-row">
+        <a routerLink="/pricing" class="btn btn-primary" style="flex:1; justify-content: center;">
+          Estimer le prix →
+        </a>
+        <a routerLink="/product-sheet" class="btn btn-secondary" style="flex:1; justify-content: center;">
+          Générer la fiche →
+        </a>
+      </div>
+
+    </ng-container>
+  </div>
+</div>

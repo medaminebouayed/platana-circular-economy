@@ -220,7 +220,7 @@ def generate_synthetic_anomaly(img: Image.Image) -> tuple[Image.Image, str]:
     elif anomaly_choice == "contamination":
         return apply_contamination(img, mask), "contamination"
     else:
-        return apply_cutpaste(img, mask), "broken"
+        return apply_cutpaste(img, mask), "broken_small"
 
 def get_train_transform(category: str):
     """
