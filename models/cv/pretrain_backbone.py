@@ -1,7 +1,6 @@
 """
 Pré-entraînement du backbone sur MVTec AD (mono-vue), multi-catégories.
-Le backbone apprend à reconnaître les défauts visuels, avec un conditionnement
-par catégorie (FiLM) pour gérer la diversité visuelle entre catégories.
+Évaluation par catégorie (MVTec Benchmark Standard) + métriques globales.
 """
 
 import argparse
@@ -11,11 +10,13 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, WeightedRandomSampler, Subset
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                             f1_score, roc_auc_score, confusion_matrix)
 from tqdm import tqdm
 
 from backbone import create_backbone
@@ -25,13 +26,7 @@ from mvtec_dataset import MVTecMultiCategoryDataset, MVTecDataset
 class CategoryFiLM(nn.Module):
     """
     Conditionnement FiLM (Feature-wise Linear Modulation) par catégorie.
-
-    Pourquoi: le backbone produit un embedding générique, mais "anomalie" ne
-    veut pas dire la même chose pour une bouteille (rayure sur verre) que pour
-    un câble (fil tordu) ou un tapis (texture irrégulière). Ce module apprend,
-    par catégorie, une modulation (gamma, beta) de l'embedding partagé, pour que
-    les têtes de classification interprètent le même vecteur différemment selon
-    le contexte catégorie.
+    Apprend, par catégorie, une modulation (gamma, beta) de l'embedding partagé.
     """
 
     def __init__(self, num_categories: int, embed_dim: int, cat_embed_dim: int = 32):
@@ -42,8 +37,6 @@ class CategoryFiLM(nn.Module):
             nn.GELU(),
             nn.Linear(cat_embed_dim * 2, embed_dim * 2)
         )
-        # Initialisation proche de l'identité pour ne pas perturber le backbone
-        # pré-entraîné ImageNet dès le début de l'entraînement.
         nn.init.zeros_(self.film[-1].weight)
         nn.init.zeros_(self.film[-1].bias)
 
@@ -51,18 +44,17 @@ class CategoryFiLM(nn.Module):
         cat_emb = self.category_embedding(category_idx)          # (B, cat_embed_dim)
         gamma_beta = self.film(cat_emb)                           # (B, 2*embed_dim)
         gamma, beta = gamma_beta.chunk(2, dim=-1)                 # (B, embed_dim) chacun
-        gamma = 1.0 + gamma  # centré sur 1 grâce à l'init à zéro ci-dessus
+        gamma = 1.0 + gamma
         return gamma * features + beta
 
 
 class PretrainRunner:
-    """Entraîne le backbone sur MVTec AD, conditionné par catégorie."""
+    """Entraîne le backbone sur MVTec AD avec évaluation par catégorie et globale."""
 
     def __init__(self, config: dict, num_categories: int):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
 
-        # Backbone partagé entre toutes les catégories
         self.backbone, self.embed_dim = create_backbone(
             model_name=config["backbone"],
             pretrained=True,
@@ -70,7 +62,6 @@ class PretrainRunner:
         )
         self.backbone = self.backbone.to(self.device)
 
-        # Conditionnement par catégorie — LE fix du problème multi-catégories
         self.category_film = CategoryFiLM(
             num_categories=num_categories,
             embed_dim=self.embed_dim
@@ -83,248 +74,219 @@ class PretrainRunner:
             nn.Linear(256, 2)
         ).to(self.device)
 
-        self.defect_head = nn.Sequential(
-            nn.Linear(self.embed_dim, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, len(MVTecDataset.DEFECT_TYPES))
-        ).to(self.device)
-
-        self.optimizer = optim.AdamW([
+        self.optimizer = AdamW([
             {'params': self.backbone.parameters(), 'lr': config["lr_backbone"]},
             {'params': self.category_film.parameters(), 'lr': config["lr_head"]},
-            {'params': self.anomaly_head.parameters(), 'lr': config["lr_head"]},
-            {'params': self.defect_head.parameters(), 'lr': config["lr_head"]}
+            {'params': self.anomaly_head.parameters(), 'lr': config["lr_head"]}
         ], weight_decay=config["weight_decay"])
 
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            self.optimizer, T_max=config["epochs"]
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer, mode='max', factor=0.5, patience=3
         )
 
-        self.criterion_anomaly = nn.CrossEntropyLoss()
-        # reduction='none' pour pouvoir masquer les samples au label defect non-fiable
-        self.criterion_defect = nn.BCEWithLogitsLoss(reduction='none')
+        self.criterion = nn.CrossEntropyLoss()
 
-    def _forward(self, images: torch.Tensor, category_idx: torch.Tensor) -> dict:
+    def _forward(self, images: torch.Tensor, category_idx: torch.Tensor) -> torch.Tensor:
         embeddings = self.backbone(images)
         embeddings = self.category_film(embeddings, category_idx)
         anomaly_logits = self.anomaly_head(embeddings)
-        defect_logits = self.defect_head(embeddings)
-        return {"anomaly_logits": anomaly_logits, "defect_logits": defect_logits}
+        return anomaly_logits
 
-    def _compute_loss(self, outputs: dict, is_anomaly: torch.Tensor,
-                       defect_labels: torch.Tensor, defect_valid: torch.Tensor) -> tuple:
-        loss_anomaly = self.criterion_anomaly(outputs["anomaly_logits"], is_anomaly)
-
-        loss_defect_raw = self.criterion_defect(outputs["defect_logits"], defect_labels)  # (B, num_defects)
-        loss_defect_per_sample = loss_defect_raw.mean(dim=1)  # (B,)
-        # Masque: on ignore les samples au label defect non-fiable (bug label corrigé ici)
-        denom = defect_valid.sum().clamp(min=1)
-        loss_defect = (loss_defect_per_sample * defect_valid).sum() / denom
-
-        loss = loss_anomaly + 0.05 * loss_defect
-        return loss, loss_anomaly, loss_defect
-
-    def train_epoch(self, dataloader: DataLoader) -> dict:
+    def train_epoch(self, dataloader: DataLoader) -> float:
         self.backbone.train()
         self.category_film.train()
         self.anomaly_head.train()
-        self.defect_head.train()
 
-        total_loss = 0.0
-        correct_anomaly = 0
-        total = 0
+        running_loss = 0.0
 
-        pbar = tqdm(dataloader, desc="Training")
-        for batch in pbar:
+        for batch in tqdm(dataloader, desc="[Training]"):
             images = batch["image"].to(self.device)
             is_anomaly = batch["is_anomaly"].to(self.device)
-            defect_labels = batch["defect_labels"].to(self.device)
-            defect_valid = batch["defect_valid"].to(self.device)
             category_idx = batch["category_idx"].to(self.device)
 
             self.optimizer.zero_grad()
-
             outputs = self._forward(images, category_idx)
-            loss, loss_anomaly, loss_defect = self._compute_loss(
-                outputs, is_anomaly, defect_labels, defect_valid
-            )
-
+            loss = self.criterion(outputs, is_anomaly)
             loss.backward()
+
             all_params = (
                 list(self.backbone.parameters()) +
                 list(self.category_film.parameters()) +
-                list(self.anomaly_head.parameters()) +
-                list(self.defect_head.parameters())
+                list(self.anomaly_head.parameters())
             )
             torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
             self.optimizer.step()
 
-            total_loss += loss.item()
-            pred_anomaly = outputs["anomaly_logits"].argmax(dim=1)
-            correct_anomaly += (pred_anomaly == is_anomaly).sum().item()
-            total += is_anomaly.size(0)
+            running_loss += loss.item()
 
-            pbar.set_postfix({
-                'loss': f"{loss.item():.4f}",
-                'acc': f"{100*correct_anomaly/total:.2f}%"
-            })
-
-        return {
-            "loss": total_loss / len(dataloader),
-            "accuracy": correct_anomaly / total
-        }
+        return running_loss / len(dataloader)
 
     @torch.no_grad()
-    def validate(self, dataloader: DataLoader) -> dict:
+    def validate(self, dataloader: DataLoader, desc: str = "Validating") -> dict:
         self.backbone.eval()
         self.category_film.eval()
         self.anomaly_head.eval()
-        self.defect_head.eval()
 
-        total_loss = 0.0
-        total_loss_anomaly = 0.0
-        total_loss_defect = 0.0
-        correct_anomaly = 0
-        total = 0
+        running_loss = 0.0
+        all_preds = []
+        all_labels = []
+        all_probs = []
 
-        # Regroupement par catégorie pour l'AUC macro
         targets_by_cat = defaultdict(list)
+        preds_by_cat = defaultdict(list)
         probs_by_cat = defaultdict(list)
-        all_targets, all_probs = [], []
 
-        for batch in tqdm(dataloader, desc="Validation"):
+        for batch in tqdm(dataloader, desc=desc):
             images = batch["image"].to(self.device)
             is_anomaly = batch["is_anomaly"].to(self.device)
-            defect_labels = batch["defect_labels"].to(self.device)
-            defect_valid = batch["defect_valid"].to(self.device)
             category_idx = batch["category_idx"].to(self.device)
-            categories = batch["category"]  # liste de strings
+            categories = batch["category"]
 
             outputs = self._forward(images, category_idx)
-            loss, loss_anomaly, loss_defect = self._compute_loss(
-                outputs, is_anomaly, defect_labels, defect_valid
-            )
+            loss = self.criterion(outputs, is_anomaly)
+            running_loss += loss.item()
 
-            total_loss += loss.item()
-            total_loss_anomaly += loss_anomaly.item()
-            total_loss_defect += loss_defect.item()
+            probs = torch.softmax(outputs, dim=1)
+            predicted = torch.argmax(probs, dim=1)
 
-            pred_anomaly = outputs["anomaly_logits"].argmax(dim=1)
-            correct_anomaly += (pred_anomaly == is_anomaly).sum().item()
-            total += is_anomaly.size(0)
-
-            probs = torch.softmax(outputs["anomaly_logits"], dim=1)[:, 1].cpu().numpy()
             targets = is_anomaly.cpu().numpy()
+            preds = predicted.cpu().numpy()
+            probabilities = probs.cpu().numpy()
 
-            all_targets.extend(targets)
-            all_probs.extend(probs)
-            for cat, t, p in zip(categories, targets, probs):
+            all_preds.extend(preds)
+            all_labels.extend(targets)
+            all_probs.extend(probabilities)
+
+            for cat, t, p, pr in zip(categories, targets, preds, probabilities[:, 1]):
                 targets_by_cat[cat].append(t)
-                probs_by_cat[cat].append(p)
+                preds_by_cat[cat].append(p)
+                probs_by_cat[cat].append(pr)
 
-        # AUC globale (poolée) — gardée à titre indicatif seulement
+        all_preds = np.array(all_preds)
+        all_labels = np.array(all_labels)
+        all_probs = np.array(all_probs)
+
+        # 1. Métriques Globales (Poolées)
+        acc_global = accuracy_score(all_labels, all_preds)
+        precision_global = precision_score(all_labels, all_preds, average='macro', zero_division=0)
+        recall_global = recall_score(all_labels, all_preds, average='macro', zero_division=0)
+        f1_global = f1_score(all_labels, all_preds, average='macro', zero_division=0)
         try:
-            global_auc = roc_auc_score(all_targets, all_probs)
+            roc_auc_global = roc_auc_score(all_labels, all_probs[:, 1])
         except ValueError:
-            global_auc = 0.5
+            roc_auc_global = 0.5
+        cm_global = confusion_matrix(all_labels, all_preds)
 
-        # AUC macro par catégorie — LA métrique de référence pour la sélection du modèle
-        # Évite qu'une catégorie avec beaucoup d'images / anomalies faciles domine le score.
-        per_category_auc = {}
+        # 2. Métriques par Catégorie (MVTec Standard)
+        f1_by_cat = {}
+        auc_by_cat = {}
         for cat in targets_by_cat:
-            try:
-                per_category_auc[cat] = roc_auc_score(targets_by_cat[cat], probs_by_cat[cat])
-            except ValueError:
-                # une seule classe présente pour cette catégorie dans ce split -> ignorée du macro
-                per_category_auc[cat] = None
+            cat_targets = np.array(targets_by_cat[cat])
+            cat_preds = np.array(preds_by_cat[cat])
+            cat_probs = np.array(probs_by_cat[cat])
 
-        valid_aucs = [v for v in per_category_auc.values() if v is not None]
-        macro_auc = float(np.mean(valid_aucs)) if valid_aucs else 0.5
+            f1_by_cat[cat] = f1_score(cat_targets, cat_preds, average='macro', zero_division=0)
+            try:
+                auc_by_cat[cat] = roc_auc_score(cat_targets, cat_probs)
+            except ValueError:
+                auc_by_cat[cat] = 0.5
+
+        macro_f1_cat = float(np.mean(list(f1_by_cat.values())))
+        macro_auc_cat = float(np.mean(list(auc_by_cat.values())))
 
         return {
-            "loss": total_loss / len(dataloader),
-            "loss_anomaly": total_loss_anomaly / len(dataloader),
-            "loss_defect": total_loss_defect / len(dataloader),
-            "accuracy": correct_anomaly / total,
-            "global_auc": global_auc,
-            "macro_auc": macro_auc,
-            "per_category_auc": per_category_auc
+            "loss": running_loss / len(dataloader),
+            "accuracy_global": acc_global,
+            "precision_global": precision_global,
+            "recall_global": recall_global,
+            "f1_global": f1_global,
+            "roc_auc_global": roc_auc_global,
+            "confusion_matrix_global": cm_global,
+            "macro_f1_cat": macro_f1_cat,
+            "macro_auc_cat": macro_auc_cat,
+            "f1_by_cat": f1_by_cat,
+            "auc_by_cat": auc_by_cat
         }
 
-    def save_backbone(self, path: str):
-        """Sauvegarde le backbone + le module de conditionnement catégorie."""
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    def save_checkpoint(self, path: str):
+        """Sauvegarde le backbone + FiLM + anomaly head."""
+        save_path = Path(path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             "backbone_state_dict": self.backbone.state_dict(),
             "category_film_state_dict": self.category_film.state_dict(),
+            "anomaly_head_state_dict": self.anomaly_head.state_dict(),
             "embed_dim": self.embed_dim,
             "config": self.config
-        }, path)
-        print(f"[OK] Backbone sauvegardé: {path}")
+        }, save_path)
 
     def run(self, train_loader: DataLoader, val_loader: DataLoader, test_loader: DataLoader):
-        best_val_macro_auc = 0.0
-        epochs_no_improve = 0
-        patience = self.config.get("patience", 5)
+        best_val_f1 = 0.0  # Sélection basée sur F1 Macro Par Catégorie
+        epochs_without_improvement = 0
+        early_stopping_rounds = self.config.get("patience", 25)
 
         for epoch in range(self.config["epochs"]):
-            print(f"\n{'='*50}")
-            print(f"Epoch {epoch+1}/{self.config['epochs']}")
-            print(f"{'='*50}")
+            print(f"\n--- Epoch {epoch+1}/{self.config['epochs']} ---")
 
-            train_metrics = self.train_epoch(train_loader)
-            print(f"Train — Loss: {train_metrics['loss']:.4f} | "
-                  f"Acc: {train_metrics['accuracy']*100:.2f}%")
+            train_loss = self.train_epoch(train_loader)
+            print(f"Train Loss: {train_loss:.4f}")
 
-            val_metrics = self.validate(val_loader)
-            print(f"Val   — Loss: {val_metrics['loss']:.4f} "
-                  f"(Anomaly: {val_metrics['loss_anomaly']:.4f}, Defect: {val_metrics['loss_defect']:.4f}) | "
-                  f"Acc: {val_metrics['accuracy']*100:.2f}% | "
-                  f"AUC globale: {val_metrics['global_auc']*100:.2f}% | "
-                  f"AUC macro (référence): {val_metrics['macro_auc']*100:.2f}%")
-            print("  Détail AUC par catégorie:")
-            for cat, auc in val_metrics["per_category_auc"].items():
-                auc_str = f"{auc*100:.2f}%" if auc is not None else "N/A (1 seule classe)"
-                print(f"    - {cat}: {auc_str}")
+            val_metrics = self.validate(val_loader, desc="Validating")
+            f1_macro_cat = val_metrics["macro_f1_cat"]
+            auc_macro_cat = val_metrics["macro_auc_cat"]
+            f1_global = val_metrics["f1_global"]
+            acc_global = val_metrics["accuracy_global"]
+            cm = val_metrics["confusion_matrix_global"]
 
-            self.scheduler.step()
+            print(f"Val F1-Score (Macro Per-Category): {f1_macro_cat:.4f}  <-- Benchmark metric")
+            print(f"Val ROC-AUC  (Macro Per-Category): {auc_macro_cat:.4f}")
+            print(f"Val Global Pooled Metrics -> F1: {f1_global:.4f} | Acc: {acc_global*100:.2f}%")
+            print("Global Confusion Matrix (Rows=True, Cols=Pred):")
+            print("       Normal  Anomaly")
+            print(cm)
+            print("-" * 40)
 
-            # Sélection du meilleur modèle sur l'AUC MACRO (pas globale)
-            if val_metrics["macro_auc"] > best_val_macro_auc:
-                best_val_macro_auc = val_metrics["macro_auc"]
-                self.save_backbone(self.config["output_path"])
-                print(f"💾 Nouveau meilleur modèle! (AUC macro: {best_val_macro_auc*100:.2f}%)")
-                epochs_no_improve = 0
+            # Step le scheduler ReduceLROnPlateau sur le F1-Score Macro par Catégorie
+            self.scheduler.step(f1_macro_cat)
+
+            # Sélection du meilleur modèle basée sur le F1-Score Macro Par Catégorie
+            if f1_macro_cat > best_val_f1:
+                best_val_f1 = f1_macro_cat
+                epochs_without_improvement = 0
+                self.save_checkpoint(self.config["output_path"])
+                print(f"🚀 New best model saved! (Category Macro F1: {best_val_f1:.4f})\n")
             else:
-                epochs_no_improve += 1
-                print(f"[INFO] Pas d'amélioration depuis {epochs_no_improve} epoch(s) (patience={patience})")
-                if epochs_no_improve >= patience:
-                    print(f"[INFO] Early stopping déclenché à l'epoch {epoch+1}")
+                epochs_without_improvement += 1
+                if epochs_without_improvement >= early_stopping_rounds:
+                    print(f"Early stopping triggered after {epoch+1} epochs.")
                     break
 
-        print(f"\n[OK] Pré-entraînement terminé. Meilleur AUC macro (val): {best_val_macro_auc*100:.2f}%")
+        print(f"\n[OK] Pré-entraînement terminé. Meilleur Category Macro F1 (val): {best_val_f1:.4f}")
 
-        # Évaluation finale unique sur le vrai test set, jamais vu pendant l'entraînement
+        # Évaluation finale sur le test set réservé
         print("\n" + "="*50)
         print("ÉVALUATION FINALE SUR LE TEST SET (jamais vu)")
         print("="*50)
-        test_metrics = self.validate(test_loader)
-        print(f"Test — AUC globale: {test_metrics['global_auc']*100:.2f}% | "
-              f"AUC macro: {test_metrics['macro_auc']*100:.2f}%")
-        for cat, auc in test_metrics["per_category_auc"].items():
-            auc_str = f"{auc*100:.2f}%" if auc is not None else "N/A"
-            print(f"    - {cat}: {auc_str}")
+        test_metrics = self.validate(test_loader, desc="Testing")
+        print(f"Test F1-Score (Macro Per-Category): {test_metrics['macro_f1_cat']:.4f}")
+        print(f"Test ROC-AUC  (Macro Per-Category): {test_metrics['macro_auc_cat']:.4f}")
+        print(f"Test Global Pooled Metrics -> F1: {test_metrics['f1_global']:.4f} | Acc: {test_metrics['accuracy_global']*100:.2f}%")
+        print("\nDétail F1 & ROC-AUC par catégorie:")
+        for cat in test_metrics["f1_by_cat"]:
+            f1_c = test_metrics["f1_by_cat"][cat]
+            auc_c = test_metrics["auc_by_cat"][cat]
+            print(f"  - {cat:<12}: F1 = {f1_c:.4f} | ROC-AUC = {auc_c:.4f}")
+        print("\nGlobal Confusion Matrix:")
+        print(test_metrics["confusion_matrix_global"])
+        print("="*50)
 
         return test_metrics
 
 
 def stratified_val_test_split(dataset: MVTecMultiCategoryDataset, test_size: float = 0.5, seed: int = 42):
     """
-    Sépare le test set officiel MVTec en deux : un 'val' utilisé pour le early
-    stopping / sélection de checkpoint, et un 'test' gardé intouché jusqu'à
-    l'évaluation finale. Stratifié par (catégorie, label) pour garder chaque
-    catégorie représentée équitablement des deux côtés.
+    Sépare le test set officiel MVTec en deux : val (sélection checkpoint) et test (évaluation finale).
+    Stratifié par (catégorie, label).
     """
     indices = list(range(len(dataset)))
     combined_strata = [f"{c}_{l}" for c, l in zip(dataset.categories, dataset.labels)]
@@ -334,9 +296,6 @@ def stratified_val_test_split(dataset: MVTecMultiCategoryDataset, test_size: flo
             indices, test_size=test_size, stratify=combined_strata, random_state=seed
         )
     except ValueError:
-        # fallback si une combinaison (catégorie, label) a trop peu de samples
-        print("[WARN] Stratification fine impossible (trop peu de samples pour une combinaison "
-              "catégorie/label), fallback sur stratification par label seul.")
         val_idx, test_idx = train_test_split(
             indices, test_size=test_size, stratify=dataset.labels, random_state=seed
         )
@@ -345,7 +304,6 @@ def stratified_val_test_split(dataset: MVTecMultiCategoryDataset, test_size: flo
 
 
 def collate_with_category(batch):
-    """Collate function standard, garde le champ 'category' (string) en liste."""
     out = {}
     for key in batch[0]:
         if key in ("category", "defect_type", "path"):
@@ -361,11 +319,11 @@ def main():
     parser.add_argument("--categories", nargs="+", default=None,
                          help="Liste de catégories à utiliser (défaut: toutes les catégories disponibles)")
     parser.add_argument("--backbone", default="vit_base_patch16_224")
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--lr_backbone", type=float, default=5e-6)
+    parser.add_argument("--lr_backbone", type=float, default=1e-5)
     parser.add_argument("--lr_head", type=float, default=2e-4)
-    parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--patience", type=int, default=25)
     parser.add_argument("--output", default="models/cv/checkpoints/backbone_mvtec.pt")
     args = parser.parse_args()
 
@@ -384,7 +342,7 @@ def main():
         transforms.RandomCrop(224),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(15),
-        transforms.ColorJitter(0.2, 0.2, 0.1),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -409,12 +367,9 @@ def main():
         transform=val_transform
     )
 
-    # Split val/test stratifié — fix méthodologique: le test set n'est plus
-    # utilisé pour la sélection de checkpoint ET l'évaluation finale.
     val_dataset, test_dataset = stratified_val_test_split(full_test_dataset, test_size=0.5)
     print(f"[INFO] Split test set officiel -> val: {len(val_dataset)} | test (réservé): {len(test_dataset)}")
 
-    # Sampler équilibré par catégorie pour l'entraînement
     sample_weights = train_dataset.category_sample_weights()
     sampler = WeightedRandomSampler(
         weights=sample_weights,
@@ -424,7 +379,7 @@ def main():
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size,
-        sampler=sampler,  # remplace shuffle=True
+        sampler=sampler,
         num_workers=4, pin_memory=True,
         collate_fn=collate_with_category
     )
@@ -439,7 +394,7 @@ def main():
         collate_fn=collate_with_category
     )
 
-    num_categories = len(MVTecDataset.CATEGORIES)  # fixe, pour cohérence des indices
+    num_categories = len(MVTecDataset.CATEGORIES)
     runner = PretrainRunner(config, num_categories=num_categories)
     runner.run(train_loader, val_loader, test_loader)
 

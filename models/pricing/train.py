@@ -4,13 +4,21 @@ Script d'entraînement du modèle de pricing.
 
 import argparse
 import yaml
-
+import joblib
 import pandas as pd
 from sklearn.model_selection import train_test_split
-
-from features import FeatureEngineer
-from model import PricingModel
 import mlflow
+import sys
+from pathlib import Path
+
+# Ensure repository root is on PYTHONPATH for absolute imports
+repo_root = Path(__file__).resolve().parents[2]
+if str(repo_root) not in sys.path:
+    sys.path.append(str(repo_root))
+
+# Absolute imports
+from models.pricing.features import FeatureEngineer
+from models.pricing.model import PricingModel
 
 
 def main():
@@ -48,13 +56,17 @@ def main():
     mlflow.set_experiment(config["paths"]["mlflow_experiment"])
     
     with mlflow.start_run():
-        mlflow.log_params(config["model"]["params"])
+        model_params = config["model"]["params"]
+        if "early_stopping_rounds" in config.get("training", {}):
+            model_params["early_stopping_rounds"] = config["training"]["early_stopping_rounds"]
+            
+        mlflow.log_params(model_params)
         
         model = PricingModel(
             model_type=config["model"]["type"],
-            params=config["model"]["params"]
+            params=model_params
         )
-        
+
         print("[INFO] Entraînement...")
         model.fit(X_train, y_train, X_val, y_val)
         
@@ -76,8 +88,13 @@ def main():
         print(f"\n[FEATURE IMPORTANCE]")
         print(importance.head(10).to_string())
         
-        # Sauvegarde
+        # Sauvegarde du modèle
         model.save(args.output)
+        
+        # Sauvegarder le FeatureEngineer pour la production
+        joblib.dump(engineer, "models/pricing/checkpoints/feature_engineer.pkl")
+        print("[OK] Feature Engineer sauvegardé!")
+        
         mlflow.log_artifact(args.output)
 
 

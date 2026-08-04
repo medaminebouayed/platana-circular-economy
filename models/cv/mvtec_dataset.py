@@ -14,7 +14,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 # Import mask‑aware augmentations
-from augmentations import get_train_transform, generate_synthetic_anomaly
+from .augmentations import get_train_transform, generate_synthetic_anomaly
 
 
 class MVTecDataset(Dataset):
@@ -46,18 +46,6 @@ class MVTecDataset(Dataset):
     # l'embedding de catégorie reste cohérent entre les runs.
     CATEGORY_TO_IDX = {cat: i for i, cat in enumerate(CATEGORIES)}
 
-    DEFECT_TYPES = [
-        "bent", "bent_lead", "bent_wire", "broken", "broken_large",
-        "broken_small", "broken_teeth", "cable_swap", "color", "combined",
-        "contamination", "crack", "cut", "cut_inner_insulation", "cut_lead",
-        "cut_outer_insulation", "damaged_case", "defective", "fabric_border",
-        "fabric_interior", "faulty_imprint", "flip", "fold", "glue", "glue_strip",
-        "gray_stroke", "hole", "liquid", "manipulated_front", "metal_contamination",
-        "misplaced", "missing_cable", "missing_wire", "oil", "pill_type", "poke",
-        "poke_insulation", "print", "rough", "scratch", "scratch_head",
-        "scratch_neck", "split_teeth", "squeeze", "squeezed_teeth", "thread",
-        "thread_side", "thread_top"
-    ]
 
     def __init__(
         self,
@@ -132,41 +120,15 @@ class MVTecDataset(Dataset):
                     image = Image.fromarray((image.cpu().permute(1, 2, 0).numpy() * 255).astype('uint8'))
                 image = self.transform(image)
 
-        # One-hot encoding des types de défauts + masque de validité
-        defect_onehot = torch.zeros(len(self.DEFECT_TYPES))
-        defect_valid = 1.0  # par défaut, sample fiable pour la loss defect
-
-        if label == 1:
-            defect_idx = self._get_defect_index(defect_type)
-            if defect_idx is not None:
-                defect_onehot[defect_idx] = 1
-            else:
-                # FIX: label non reconnu -> on exclut ce sample de la loss defect
-                # au lieu de laisser un vecteur à zéro qui contredit silencieusement is_anomaly=1
-                defect_valid = 0.0
-        else:
-            # Sample "good": le vecteur à zéro est correct, mais on ne veut pas
-            # non plus forcer le defect_head à apprendre sur du bruit -> on le garde valide
-            # car "aucun défaut" est une vraie information (vecteur nul légitime).
-            defect_valid = 1.0
-
         return {
             "image": image,
             "is_anomaly": torch.tensor(label, dtype=torch.long),
-            "defect_labels": defect_onehot,
-            "defect_valid": torch.tensor(defect_valid, dtype=torch.float),
             "defect_type": defect_type,
             "category": self.category,
             "category_idx": torch.tensor(self.category_idx, dtype=torch.long),
             "path": img_path
         }
 
-    def _get_defect_index(self, defect_type: str) -> Optional[int]:
-        if defect_type in self.DEFECT_TYPES:
-            return self.DEFECT_TYPES.index(defect_type)
-        import warnings
-        warnings.warn(f"Defect type '{defect_type}' not recognized. Returning None.")
-        return None
 
 
 class MVTecMultiCategoryDataset(Dataset):

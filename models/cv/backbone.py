@@ -5,7 +5,10 @@ Pré-entraîné sur ImageNet ou MVTec AD.
 
 import torch
 import torch.nn as nn
-import timm # collection de modeles CV
+try:
+    import timm  # collection de modeles CV
+except ImportError:
+    timm = None  # fallback defined later
 
 
 def create_backbone(
