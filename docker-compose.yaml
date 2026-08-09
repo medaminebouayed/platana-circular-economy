@@ -1,74 +1,134 @@
 version: '3.8'
 
 services:
-  # === SERVICE CV ===
+
+  # ── MongoDB ──────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: platana-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=platana_circular_economy
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── CV Service ───────────────────────────────────────────────
   cv-service:
     build:
       context: .
       dockerfile: Dockerfile.cv
+    container_name: platana-cv
+    restart: unless-stopped
     ports:
       - "8001:8001"
     volumes:
       - ./models/cv/checkpoints:/app/models/cv/checkpoints:ro
-      - ./data:/app/data:ro
+    env_file:
+      - .env
     environment:
-      - MODEL_PATH=/app/models/cv/checkpoints/best_model.pt
+      - CV_MODEL_PATH=/app/models/cv/checkpoints/best_multitask_model.pth
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # === SERVICE PRICING ===
+  # ── Pricing Service ──────────────────────────────────────────
   pricing-service:
     build:
       context: .
       dockerfile: Dockerfile.pricing
+    container_name: platana-pricing
+    restart: unless-stopped
     ports:
       - "8002:8002"
     volumes:
       - ./models/pricing/checkpoints:/app/models/pricing/checkpoints:ro
-    environment:
-      - MODEL_PATH=/app/models/pricing/checkpoints/model.pkl
-    depends_on:
-      - cv-service
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # === ORCHESTRATEUR ===
+  # ── Orchestrator ─────────────────────────────────────────────
   orchestrator:
     build:
       context: .
       dockerfile: Dockerfile.orchestrator
+    container_name: platana-orchestrator
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - CV_SERVICE_URL=http://cv-service:8001
       - PRICING_SERVICE_URL=http://pricing-service:8002
-      - DIFY_API_URL=${DIFY_API_URL}
-      - DIFY_API_KEY=${DIFY_API_KEY}
+      - MONGO_URL=mongodb://mongodb:27017
     depends_on:
-      - cv-service
-      - pricing-service
+      cv-service:
+        condition: service_healthy
+      pricing-service:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # === MLFLOW ===
-  mlflow:
-    image: mlflow/mlflow:latest
+  # ── Main Service ─────────────────────────────────────────────
+  main-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.main
+    container_name: platana-main
+    restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "8003:8003"
     volumes:
-      - ./mlruns:/mlflow/mlruns
-    command: mlflow server --host 0.0.0.0 --port 5000
-
-  # === PROMETHEUS + GRAFANA ===
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
+      - uploads-data:/app/data/uploads
+    env_file:
+      - .env
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - MONGO_URL=mongodb://mongodb:27017
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Frontend ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: platana-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      main-service:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+    driver: local
+  uploads-data:
+    driver: local

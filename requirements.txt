@@ -27,6 +27,10 @@ python-dotenv>=1.0.0
 requests>=2.31.0
 tqdm>=4.66.0
 httpx>=0.25.0
+groq>=0.4.0
+fpdf2>=2.7.0
+PyJWT>=2.8.0
+passlib>=1.7.4
 
 # download specific torch version based on cuda
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128

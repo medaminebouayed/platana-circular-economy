@@ -7,12 +7,17 @@ __pycache__/
 venv/
 env/
 .env
+activate.bat
+setup_env.bat
+setup_structure.bat
 
 # Data
 data/raw/*
 data/processed/*
 data/external/*
 !data/**/.gitkeep
+data/uploads/*
+temp_upload/
 
 # Models
 *.pt
@@ -20,10 +25,12 @@ data/external/*
 *.onnx
 models/**/checkpoints/*
 !models/**/checkpoints/.gitkeep
+best_grading_model.pth
 
 # MLflow
 mlruns/
-
+mlruns/**/.gitkeep
+mlflow.db
 # IDE
 .vscode/
 .idea/

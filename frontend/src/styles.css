@@ -1,24 +1,21 @@
 /* Custom Design System for Platana Circular Economy */
 :root {
-  /* Colors */
-  --primary-hsl: 160, 84%, 39%;
+  /* Colors - Light Theme (Default) */
+  --primary-hsl: 158, 64%, 42%; /* Platana Emerald */
   --primary: hsl(var(--primary-hsl));
-  --primary-hover: hsl(160, 84%, 32%);
-  --primary-glow: hsla(var(--primary-hsl), 0.15);
+  --primary-hover: hsl(158, 64%, 35%);
+  --primary-glow: hsla(var(--primary-hsl), 0.25);
   
-  --dark-bg: #0b0f19;
-  --dark-panel: #111827;
-  --dark-card: #1f2937;
-  --dark-border: #374151;
-  --dark-text: #f9fafb;
-  --dark-text-muted: #9ca3af;
+  --bg-color: #f8fafc;
+  --panel-bg: #ffffff;
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --border-color: #e2e8f0;
   
-  --light-bg: #f8fafc;
-  --light-panel: #ffffff;
-  --light-card: #ffffff;
-  --light-border: #e2e8f0;
-  --light-text: #0f172a;
-  --light-text-muted: #64748b;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  
+  --sidebar-bg: #ffffff;
+  --navbar-bg: rgba(255, 255, 255, 0.85);
 
   --accent-blue: #0ea5e9;
   --accent-yellow: #f59e0b;
@@ -36,13 +33,31 @@
   --shadow-primary: 0 4px 14px 0 hsla(var(--primary-hsl), 0.35);
 
   /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
   --radius-full: 9999px;
   
   /* Layout */
   --sidebar-width: 260px;
+}
+
+body.dark-theme {
+  /* Colors - Dark Theme */
+  --bg-color: #0b0f19; /* Deep slate */
+  --panel-bg: #111827;
+  --card-bg: rgba(17, 24, 39, 0.7);
+  --border-color: #374151;
+  
+  --text-main: #f9fafb;
+  --text-muted: #9ca3af;
+  
+  --sidebar-bg: #111827;
+  --navbar-bg: rgba(17, 24, 39, 0.85);
+  
+  --primary-glow: hsla(var(--primary-hsl), 0.15);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
 }
 
 /* Global Reset */
@@ -50,13 +65,13 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 body {
   font-family: var(--font-body);
-  background-color: var(--light-bg);
-  color: var(--light-text);
+  background-color: var(--bg-color);
+  color: var(--text-main);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -75,7 +90,7 @@ h1, h2, h3, h4, h5, h6 {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--light-bg);
+  background: var(--bg-color);
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
@@ -90,7 +105,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   min-height: 100vh;
   width: 100vw;
-  background-color: var(--light-bg);
+  background-color: var(--bg-color);
 }
 
 .main-content {
@@ -110,8 +125,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Professional Cards */
 .platana-card {
-  background: var(--light-panel);
-  border: 1px solid var(--light-border);
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 1.5rem;
   box-shadow: var(--shadow-md);
@@ -131,14 +148,14 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--light-border);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.75rem;
 }
 
 .platana-card-title {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--light-text);
+  color: var(--text-main);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -154,16 +171,16 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.85rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
-  color: var(--light-text-muted);
+  color: var(--text-muted);
 }
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--light-border);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  background-color: #ffffff;
-  color: var(--light-text);
+  background-color: var(--panel-bg);
+  color: var(--text-main);
   font-family: var(--font-body);
   font-size: 0.9rem;
   outline: none;
@@ -206,13 +223,13 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-secondary {
   background-color: transparent;
-  border: 1px solid var(--light-border);
-  color: var(--light-text);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
 }
 
 .btn-secondary:hover {
-  background-color: #f1f5f9;
-  border-color: #cbd5e1;
+  background-color: var(--panel-bg);
+  border-color: var(--primary);
 }
 
 .btn-danger {
@@ -262,9 +279,9 @@ h1, h2, h3, h4, h5, h6 {
 .platana-table-container {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid var(--light-border);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  background: var(--light-panel);
+  background: var(--panel-bg);
 }
 
 .platana-table {
@@ -275,17 +292,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .platana-table th {
-  background-color: #f8fafc;
+  background-color: var(--bg-color);
   padding: 1rem;
   font-weight: 600;
-  color: var(--light-text-muted);
-  border-bottom: 1px solid var(--light-border);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .platana-table td {
   padding: 1rem;
-  border-bottom: 1px solid var(--light-border);
-  color: var(--light-text);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
 }
 
 .platana-table tr:last-child td {
@@ -293,7 +310,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .platana-table tr:hover td {
-  background-color: #f8fafc;
+  background-color: var(--bg-color);
 }
 
 /* Grid helper */

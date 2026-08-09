@@ -1,31 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../services/auth.service';
-
-interface KpiCard {
-  label: string;
-  value: string;
-  unit: string;
-  change: number;
-  icon: string;
-  color: string;
-}
-
-interface RecentProduct {
-  id: string;
-  name: string;
-  grade: string;
-  category: string;
-  price: number;
-  status: 'recondition' | 'resale' | 'recycle' | 'pending';
-  date: string;
-}
-
-interface ChannelData {
-  channel: string;
-  products: number;
-  revenue: number;
-  pct: number;
-}
+import { ApiService, ProductSummary } from '../services/api.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -33,95 +8,194 @@ interface ChannelData {
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit {
-  
-  kpis: KpiCard[] = [
-    { label: 'Produits valorisés', value: '1 247', unit: 'ce mois', change: +12.4, icon: 'recycle', color: 'green' },
-    { label: 'Revenu revente', value: '89 430', unit: '€ / mois', change: +8.7, icon: 'euro', color: 'blue' },
-    { label: 'Produits détruits évités', value: '94.2', unit: '%', change: +3.1, icon: 'leaf', color: 'emerald' },
-    { label: 'Écart Pricing Moyen', value: '5.8', unit: '% vs réel', change: -1.2, icon: 'target', color: 'purple' },
-    { label: 'Temps de traitement moyen', value: '2.4', unit: 's / produit', change: -0.3, icon: 'zap', color: 'yellow' },
-    { label: 'Produits en attente', value: '38', unit: 'à processer', change: +5, icon: 'clock', color: 'orange' },
+
+  allProducts: ProductSummary[] = [];
+  selectedProduct: ProductSummary | null = null;
+  isLoading = true;
+
+  // Admin override state
+  adminGrade = '';
+  adminPrice = 0;
+  adminTitle = '';
+  adminDescription = '';
+  adminRefurbCost = 0;
+  isSaving = false;
+  isPublishing = false;
+  saveResult: { success: boolean; message: string } | null = null;
+  publishResult: { success: boolean; message: string; url?: string } | null = null;
+
+  kpis = [
+    { label: 'En attente de validation', value: '0', color: 'blue' },
+    { label: 'Publiés', value: '0', color: 'green' },
+    { label: 'Rejetés', value: '0', color: 'red' },
+    { label: 'Total traités', value: '0', color: 'purple' },
   ];
 
-  recentProducts: RecentProduct[] = [
-    { id: 'PLT-92301', name: 'Samsung Galaxy S22', grade: 'B', category: 'Smartphone', price: 349, status: 'resale', date: 'Aujourd\'hui 14:22' },
-    { id: 'PLT-92289', name: 'Apple MacBook Air M1', grade: 'A', category: 'Ordinateur', price: 780, status: 'resale', date: 'Aujourd\'hui 13:05' },
-    { id: 'PLT-92274', name: 'Dyson V11 Absolute', grade: 'C', category: 'Aspirateur', price: 189, status: 'recondition', date: 'Aujourd\'hui 11:48' },
-    { id: 'PLT-92261', name: 'iPad Pro 11" 2022', grade: 'B', category: 'Tablette', price: 510, status: 'resale', date: 'Hier 17:30' },
-    { id: 'PLT-92249', name: 'Sony WH-1000XM5', grade: 'A', category: 'Audio', price: 198, status: 'resale', date: 'Hier 16:15' },
-    { id: 'PLT-92231', name: 'Kärcher K5 Premium', grade: 'D', category: 'Outillage', price: 0, status: 'recycle', date: 'Hier 09:00' },
-    { id: 'PLT-92218', name: 'LG OLED C2 55"', grade: 'B', category: 'TV', price: 640, status: 'resale', date: '26/07 18:11' },
-    { id: 'PLT-92205', name: 'iPhone 13 Pro', grade: 'A', category: 'Smartphone', price: 560, status: 'resale', date: '26/07 14:52' },
-  ];
+  constructor(public authService: AuthService, private api: ApiService) {}
 
-  channelData: ChannelData[] = [
-    { channel: 'BackMarket', products: 418, revenue: 38200, pct: 42 },
-    { channel: 'Leboncoin', products: 286, revenue: 21900, pct: 29 },
-    { channel: 'Platana Store', products: 197, revenue: 18100, pct: 20 },
-    { channel: 'eBay', products: 97, revenue: 11230, pct: 9 },
-  ];
+  ngOnInit() { this.loadProducts(); }
 
-  gradeDistribution = [
-    { grade: 'A', count: 312, color: '#10b981' },
-    { grade: 'B', count: 544, color: '#0ea5e9' },
-    { grade: 'C', count: 267, color: '#f59e0b' },
-    { grade: 'D', count: 124, color: '#ef4444' },
-  ];
+  loadProducts() {
+    this.isLoading = true;
+    this.api.getAllProducts().subscribe({
+      next: (products) => {
+        this.allProducts = products;
+        this.api.getDashboardStats().subscribe(stats => {
+          this.kpis[0].value = stats.totalPending.toString();
+          this.kpis[1].value = products.filter(p => p.status === 'PUBLISHED').length.toString();
+          this.kpis[2].value = products.filter(p => p.status === 'REJECTED').length.toString();
+          this.kpis[3].value = (products.length).toString(); // Total processed
+          this.isLoading = false;
+        });
+      },
+      error: () => { this.isLoading = false; }
+    });
+  }
 
-  totalProducts = 1247;
+  get pendingProducts(): ProductSummary[] {
+    return this.allProducts.filter(p => p.status === 'PENDING_ADMIN_REVIEW');
+  }
 
-  monthlyTrend = [
-    { month: 'Fév', valorises: 890, detruits: 210 },
-    { month: 'Mar', valorises: 940, detruits: 180 },
-    { month: 'Avr', valorises: 1010, detruits: 155 },
-    { month: 'Mai', valorises: 1080, detruits: 130 },
-    { month: 'Jun', valorises: 1150, detruits: 118 },
-    { month: 'Jul', valorises: 1247, detruits: 72 },
-  ];
+  get publishedProducts(): ProductSummary[] {
+    return this.allProducts.filter(p => p.status === 'PUBLISHED');
+  }
 
-  maxMonthlyTotal = 0;
+  selectProduct(product: ProductSummary) {
+    this.selectedProduct = product;
+    const ai = product.ai_predictions;
+    const review = product.admin_review;
+    this.adminGrade = review?.grade || ai?.grade || 'B';
+    this.adminPrice = review?.market_price || ai?.market_price || 0;
+    this.adminTitle = review?.title || ai?.title || '';
+    this.adminDescription = review?.description || ai?.description || '';
+    this.adminRefurbCost = review?.refurb_cost || ai?.refurb_cost || 0;
+    this.saveResult = null;
+    this.publishResult = null;
+  }
 
-  constructor(public authService: AuthService) {}
+  closeDetail() { this.selectedProduct = null; this.saveResult = null; this.publishResult = null; }
 
-  ngOnInit() {
-    this.maxMonthlyTotal = Math.max(...this.monthlyTrend.map(m => m.valorises + m.detruits));
+  saveReview() {
+    if (!this.selectedProduct) return;
+    this.isSaving = true;
+    const reviewPayload = {
+      grade: this.adminGrade,
+      defects: this.selectedProduct.ai_predictions?.defects || [],
+      market_price: this.adminPrice,
+      refurb_cost: this.adminRefurbCost,
+      title: this.adminTitle,
+      description: this.adminDescription,
+      reviewed_by: this.authService.currentUserValue?.email || 'admin'
+    };
+    this.api.reviewProduct(this.selectedProduct.id, reviewPayload).subscribe({
+      next: () => {
+        this.isSaving = false;
+        this.saveResult = { success: true, message: 'Modifications enregistrées. Le produit est prêt pour publication.' };
+        this.loadProducts();
+      },
+      error: () => {
+        this.isSaving = false;
+        this.saveResult = { success: false, message: 'Erreur lors de la sauvegarde.' };
+      }
+    });
+  }
+
+  isRejecting = false;
+  isReEvaluating = false;
+
+  rejectProduct() {
+    if (!this.selectedProduct) return;
+    if (!confirm(`Êtes-vous sûr de vouloir refuser le produit ${this.selectedProduct.brand} ${this.selectedProduct.model} ?`)) return;
+    this.isRejecting = true;
+    this.api.rejectProduct(this.selectedProduct.id).subscribe({
+      next: () => {
+        this.isRejecting = false;
+        this.saveResult = { success: true, message: 'Le produit a été refusé et marqué comme rejeté.' };
+        if (this.selectedProduct) this.selectedProduct.status = 'REJECTED';
+        this.loadProducts();
+      },
+      error: (err) => {
+        this.isRejecting = false;
+        this.saveResult = { success: false, message: err?.error?.detail || 'Erreur lors du rejet du produit.' };
+      }
+    });
+  }
+
+  reEvaluateProduct() {
+    if (!this.selectedProduct) return;
+    this.isReEvaluating = true;
+    this.saveResult = null;
+    this.api.reEvaluateProduct(this.selectedProduct.id).subscribe({
+      next: (res) => {
+        this.isReEvaluating = false;
+        this.saveResult = { success: true, message: 'Ré-évaluation effectuée par Dify AI avec succès.' };
+        if (this.selectedProduct) {
+          this.selectedProduct.status = 'PENDING_ADMIN_REVIEW';
+          this.selectedProduct.ai_predictions = res.ai_predictions;
+          this.selectProduct(this.selectedProduct);
+        }
+        this.loadProducts();
+      },
+      error: (err) => {
+        this.isReEvaluating = false;
+        this.saveResult = { success: false, message: err?.error?.detail || 'Échec de la ré-évaluation.' };
+      }
+    });
+  }
+
+  publishProduct() {
+    if (!this.selectedProduct) return;
+    this.isPublishing = true;
+    this.publishResult = null;
+    this.api.publishProduct(this.selectedProduct.id).subscribe({
+      next: (res) => {
+        this.isPublishing = false;
+        this.publishResult = { success: true, message: 'Produit publié avec succès !', url: res.shopify_url };
+        this.loadProducts();
+      },
+      error: (err) => {
+        this.isPublishing = false;
+        const detail = err?.error?.detail || 'Erreur de publication.';
+        this.publishResult = { success: false, message: detail };
+      }
+    });
+  }
+
+  getGradeColor(grade: string): string {
+    const map: Record<string, string> = { A: '#10b981', B: '#0ea5e9', C: '#f59e0b', D: '#ef4444' };
+    return map[grade] || '#94a3b8';
   }
 
   getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case 'resale': return 'badge badge-success';
-      case 'recondition': return 'badge badge-warning';
-      case 'recycle': return 'badge badge-danger';
-      case 'pending': return 'badge badge-info';
-      default: return 'badge';
-    }
+    const map: Record<string, string> = {
+      PENDING_EVALUATION: 'badge badge-info',
+      PENDING_ADMIN_REVIEW: 'badge badge-warning',
+      REVIEWED: 'badge badge-info',
+      PUBLISHED: 'badge badge-success',
+      REJECTED: 'badge badge-danger',
+      AI_ERROR: 'badge badge-danger',
+    };
+    return map[status] || 'badge';
   }
 
   getStatusLabel(status: string): string {
-    switch (status) {
-      case 'resale': return 'Revente directe';
-      case 'recondition': return 'À reconditionner';
-      case 'recycle': return 'Recyclage D3E';
-      case 'pending': return 'En analyse';
-      default: return status;
-    }
+    const map: Record<string, string> = {
+      PENDING_EVALUATION: 'En analyse IA',
+      PENDING_ADMIN_REVIEW: 'Attente validation',
+      REVIEWED: 'Révisé',
+      PUBLISHED: 'Publié',
+      REJECTED: 'Rejeté',
+      AI_ERROR: 'Erreur IA',
+    };
+    return map[status] || status;
   }
 
-  getGradeBadgeClass(grade: string): string {
-    switch (grade) {
-      case 'A': return 'grade-badge grade-a';
-      case 'B': return 'grade-badge grade-b';
-      case 'C': return 'grade-badge grade-c';
-      case 'D': return 'grade-badge grade-d';
-      default: return 'grade-badge';
-    }
-  }
-
-  getBarHeight(month: any): number {
-    return ((month.valorises + month.detruits) / this.maxMonthlyTotal) * 100;
-  }
-
-  getGradePct(count: number): number {
-    return Math.round((count / this.totalProducts) * 100);
+  getDecisionLabel(decision?: string): string {
+    const map: Record<string, string> = {
+      RESALE_DIRECT: '✅ Revente directe',
+      RECONDITION: '🔧 Reconditionnement',
+      RECYCLE: '♻️ Recyclage',
+    };
+    return decision ? (map[decision] || decision) : '—';
   }
 }

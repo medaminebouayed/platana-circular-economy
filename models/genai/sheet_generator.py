@@ -93,6 +93,25 @@ class ProductSheetGenerator:
         
         return text.encode("latin-1", "ignore").decode("latin-1")
     
+    def generate_sheet_text_and_pdf(self, model_name, grade, repaired_defects, price):
+        """Wrapper pour exécuter la génération de texte et le PDF en une seule fois (pour les BackgroundTasks)."""
+        try:
+            # 1. Générer le texte via LLM
+            sheet_data = self.generate_sheet_text(model_name, grade, repaired_defects, price)
+            
+            # 2. Générer le chemin de sauvegarde
+            repo_root = Path(__file__).resolve().parents[2]
+            pdf_path = repo_root / "data" / "output" / f"{model_name.replace(' ', '_')}_grade_{grade}.pdf"
+            
+            # 3. Créer le PDF
+            self.generate_pdf(sheet_data, pdf_path)
+            
+            print(f"[Background Task] PDF généré avec succès à : {pdf_path}")
+            return str(pdf_path)
+        except Exception as e:
+            print(f"[Background Task] Erreur lors de la génération de la fiche PDF: {e}")
+            return None
+
     def generate_pdf(self, sheet_data, output_path):
         """Génère un PDF professionnel à partir des données de la fiche."""
         

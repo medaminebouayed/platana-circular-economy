@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { ApiService, ProductSheetResponse } from '../services/api.service';
+
 
 @Component({
   selector: 'app-product-sheet',
@@ -31,7 +31,7 @@ export class ProductSheetComponent {
   categories = ['Smartphone', 'Ordinateur', 'Tablette', 'TV', 'Aspirateur', 'Audio', 'Outillage', 'Console de jeux'];
   grades = ['A', 'B', 'C', 'D'];
 
-  result: ProductSheetResponse | null = null;
+  result: any | null = null;
   isLoading = false;
   isPublishing = false;
   publishedChannels: string[] = [];
@@ -40,7 +40,7 @@ export class ProductSheetComponent {
 
   publishSteps: Array<{ label: string; status: 'pending' | 'running' | 'done' | 'error' }> = [];
 
-  constructor(public apiService: ApiService) {}
+  constructor() {}
 
   toggleDefect(value: string) {
     const idx = this.form.defects.indexOf(value);
@@ -59,14 +59,9 @@ export class ProductSheetComponent {
     clearInterval(this.typewriterInterval);
     this.displayedText = '';
 
-    this.apiService.generateProductSheet({ ...this.form }).subscribe({
-      next: (res) => {
-        this.result = res;
-        this.isLoading = false;
-        this.startTypewriter(res.description);
-      },
-      error: () => { this.isLoading = false; }
-    });
+    // Deprecated
+    console.log("Generating...");
+    this.isLoading = false;
   }
 
   private startTypewriter(fullText: string) {
@@ -87,7 +82,7 @@ export class ProductSheetComponent {
   simulatePublish() {
     if (!this.result) return;
     this.isPublishing = true;
-    this.publishSteps = this.result.recommended_channels.map(ch => ({
+    this.publishSteps = (this.result.recommended_channels || []).map((ch: string) => ({
       label: ch, status: 'pending'
     }));
 

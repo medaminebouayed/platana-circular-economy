@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
-import { ApiService, PricingRequest, PricingResponse } from '../services/api.service';
+
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-pricing',
@@ -7,7 +8,7 @@ import { ApiService, PricingRequest, PricingResponse } from '../services/api.ser
   styleUrls: ['./pricing.component.css']
 })
 export class PricingComponent {
-  form: PricingRequest = {
+  form: any = {
     grade: 'B',
     category: 'Smartphone',
     brand: 'Samsung',
@@ -18,9 +19,14 @@ export class PricingComponent {
     season: 'autumn'
   };
 
-  result: PricingResponse | null = null;
+  result: any | null = null;
   isLoading = false;
-  history: Array<{ request: PricingRequest; result: PricingResponse }> = [];
+  history: Array<{ request: any; result: any }> = [];
+
+  // Admin Override
+  isValidationMode = false;
+  adminOverriddenPrice: number | null = null;
+  isApprovedForMarketplace = false;
 
   categories = ['Smartphone', 'Ordinateur', 'Tablette', 'TV', 'Aspirateur', 'Audio', 'Outillage', 'Electroménager', 'Console de jeux', 'Appareil photo'];
   grades = ['A', 'B', 'C', 'D'];
@@ -39,7 +45,9 @@ export class PricingComponent {
     { label: 'Dyson V11', grade: 'C', category: 'Aspirateur', brand: 'Dyson', model: 'V11 Absolute', original_price: 549, age_days: 720, repair_cost: 75 },
   ];
 
-  constructor(public apiService: ApiService) {}
+  constructor(
+    public authService: AuthService
+  ) {}
 
   applyPreset(preset: any) {
     this.form = { ...preset, season: 'autumn' };
@@ -50,15 +58,9 @@ export class PricingComponent {
     this.isLoading = true;
     this.result = null;
 
-    this.apiService.predictPrice({ ...this.form }).subscribe({
-      next: (res) => {
-        this.result = res;
-        this.history.unshift({ request: { ...this.form }, result: res });
-        if (this.history.length > 5) this.history.pop();
-        this.isLoading = false;
-      },
-      error: () => { this.isLoading = false; }
-    });
+    // Deprecated
+    console.log("Estimating...");
+    this.isLoading = false;
   }
 
   getPriceRatioPct(): number {

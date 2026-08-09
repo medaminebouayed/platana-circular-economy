@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ApiService } from '../services/api.service';
 
 interface Workshop {
   id: string;
@@ -7,10 +8,12 @@ interface Workshop {
   region: string;
   capacity: number;
   occupancy: number;
-  avgCost: number;
+  avg_cost: number;
   distance: number;
   specialties: string[];
   status: 'available' | 'busy' | 'full';
+  min_profit_threshold: number;
+  max_items_per_batch: number;
 }
 
 interface AllocationDecision {
@@ -25,6 +28,13 @@ interface AllocationDecision {
   totalCost: number;
 }
 
+const EMPTY_WORKSHOP: Partial<Workshop> = {
+  name: '', city: '', region: '', capacity: 100,
+  occupancy: 0, avg_cost: 30, distance: 200,
+  specialties: [], status: 'available',
+  min_profit_threshold: 20, max_items_per_batch: 10
+};
+
 @Component({
   selector: 'app-logistics',
   templateUrl: './logistics.component.html',
@@ -32,62 +42,42 @@ interface AllocationDecision {
 })
 export class LogisticsComponent implements OnInit {
 
-  workshops: Workshop[] = [
-    {
-      id: 'W01', name: 'Atelier Platana Nord',
-      city: 'Lille', region: 'Hauts-de-France',
-      capacity: 200, occupancy: 62, avgCost: 48,
-      distance: 230, specialties: ['Smartphone', 'Ordinateur', 'Tablette'],
-      status: 'available'
-    },
-    {
-      id: 'W02', name: 'Centre Reconditionnement Est',
-      city: 'Strasbourg', region: 'Grand Est',
-      capacity: 350, occupancy: 87, avgCost: 52,
-      distance: 490, specialties: ['TV', 'Electroménager', 'Outillage'],
-      status: 'busy'
-    },
-    {
-      id: 'W03', name: 'Hub Reconditionnement Sud',
-      city: 'Lyon', region: 'Auvergne-Rhône-Alpes',
-      capacity: 280, occupancy: 45, avgCost: 44,
-      distance: 460, specialties: ['Smartphone', 'Audio', 'Console de jeux'],
-      status: 'available'
-    },
-    {
-      id: 'W04', name: 'Site Atlantique',
-      city: 'Nantes', region: 'Pays de la Loire',
-      capacity: 180, occupancy: 95, avgCost: 58,
-      distance: 380, specialties: ['Aspirateur', 'Electroménager'],
-      status: 'full'
-    },
-  ];
-
-  allocations: AllocationDecision[] = [
-    { productId: 'PLT-92301', productName: 'Samsung Galaxy S22', grade: 'B', decision: 'RESALE_DIRECT', channel: 'BackMarket', estimatedDelay: 2, transportCost: 12, totalCost: 12 },
-    { productId: 'PLT-92274', productName: 'Dyson V11 Absolute', grade: 'C', decision: 'RECONDITION', workshop: 'Atelier Platana Nord', channel: 'Leboncoin', estimatedDelay: 7, transportCost: 18, totalCost: 66 },
-    { productId: 'PLT-92231', productName: 'Kärcher K5 Premium', grade: 'D', decision: 'RECYCLE', channel: 'Filière D3E', estimatedDelay: 5, transportCost: 22, totalCost: 22 },
-    { productId: 'PLT-92265', productName: 'iPad Pro 11" 2022', grade: 'B', decision: 'RESALE_DIRECT', channel: 'BackMarket', estimatedDelay: 2, transportCost: 8, totalCost: 8 },
-    { productId: 'PLT-92254', productName: 'Sony WH-1000XM5', grade: 'A', decision: 'RESALE_DIRECT', channel: 'Platana Store', estimatedDelay: 1, transportCost: 5, totalCost: 5 },
-    { productId: 'PLT-92243', productName: 'Dell XPS 15 Laptop', grade: 'C', decision: 'RECONDITION', workshop: 'Hub Reconditionnement Sud', channel: 'eBay', estimatedDelay: 10, transportCost: 25, totalCost: 69 },
-  ];
+  workshops: Workshop[] = [];
+  allocations: AllocationDecision[] = [];
+  totalOptimizationProfit = 0;
 
   globalStats = {
-    totalPending: 38,
-    forRecondition: 14,
-    forResale: 18,
-    forRecycle: 6,
-    avgDelay: 4.5,
-    totalTransportCost: 1248,
+    totalPending: 0,
+    forRecondition: 0,
+    forResale: 0,
+    forRecycle: 0,
+    avgDelay: 0,
+    totalTransportCost: 0,
   };
 
   selectedWorkshop: Workshop | null = null;
   isOptimizing = false;
   optimizationDone = false;
-  Math = Math; // expose Math to template
+  optimizationStatus = '';
+  Math = Math;
 
+  // Admin CRUD state
+  showWorkshopModal = false;
+  isEditMode = false;
+  editingWorkshop: any = { ...EMPTY_WORKSHOP };
+  isSavingWorkshop = false;
+  workshopSpecialtiesInput = '';
 
-  ngOnInit() {}
+  constructor(private api: ApiService) {}
+
+  ngOnInit() {
+    this.loadWorkshops();
+    this.api.getDashboardStats().subscribe(stats => this.globalStats = stats);
+  }
+
+  loadWorkshops() {
+    this.api.getWorkshops().subscribe(ws => this.workshops = ws);
+  }
 
   getOccupancyColor(pct: number): string {
     if (pct < 60) return '#10b981';
@@ -133,13 +123,79 @@ export class LogisticsComponent implements OnInit {
 
   runOptimization() {
     this.isOptimizing = true;
-    setTimeout(() => {
-      this.isOptimizing = false;
-      this.optimizationDone = true;
-    }, 2500);
+    this.optimizationDone = false;
+    this.api.optimizeLogistics().subscribe({
+      next: (res) => {
+        this.allocations = res.allocations || [];
+        this.totalOptimizationProfit = res.total_profit || 0;
+        this.optimizationStatus = res.status || '';
+        this.isOptimizing = false;
+        this.optimizationDone = true;
+      },
+      error: (err) => {
+        this.isOptimizing = false;
+        const detail = err?.error?.detail || 'Optimization failed. Is the orchestrator running?';
+        alert(detail);
+      }
+    });
   }
 
   selectWorkshop(w: Workshop) {
     this.selectedWorkshop = this.selectedWorkshop?.id === w.id ? null : w;
+  }
+
+  // ── Admin CRUD ──────────────────────────────────────────────
+  openAddModal() {
+    this.isEditMode = false;
+    this.editingWorkshop = { ...EMPTY_WORKSHOP };
+    this.workshopSpecialtiesInput = '';
+    this.showWorkshopModal = true;
+  }
+
+  openEditModal(w: Workshop, event: Event) {
+    event.stopPropagation();
+    this.isEditMode = true;
+    this.editingWorkshop = { ...w };
+    this.workshopSpecialtiesInput = (w.specialties || []).join(', ');
+    this.showWorkshopModal = true;
+  }
+
+  closeModal() {
+    this.showWorkshopModal = false;
+  }
+
+  saveWorkshop() {
+    this.isSavingWorkshop = true;
+    const payload = {
+      ...this.editingWorkshop,
+      specialties: this.workshopSpecialtiesInput
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0)
+    };
+
+    if (this.isEditMode && payload.id) {
+      const id = payload.id;
+      delete payload.id;
+      this.api.updateWorkshop(id, payload).subscribe({
+        next: () => { this.isSavingWorkshop = false; this.closeModal(); this.loadWorkshops(); },
+        error: () => { this.isSavingWorkshop = false; alert('Erreur lors de la mise à jour.'); }
+      });
+    } else {
+      delete payload.id;
+      this.api.createWorkshop(payload).subscribe({
+        next: () => { this.isSavingWorkshop = false; this.closeModal(); this.loadWorkshops(); },
+        error: () => { this.isSavingWorkshop = false; alert('Erreur lors de la création.'); }
+      });
+    }
+  }
+
+  deleteWorkshop(w: Workshop, event: Event) {
+    event.stopPropagation();
+    if (!confirm(`Supprimer l'atelier "${w.name}" ?`)) return;
+    this.api.deleteWorkshop(w.id).subscribe({
+      next: () => { this.loadWorkshops(); if (this.selectedWorkshop?.id === w.id) this.selectedWorkshop = null; },
+      error: () => alert('Erreur lors de la suppression.')
+    });
   }
 }

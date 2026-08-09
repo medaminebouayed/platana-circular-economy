@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Code
 COPY api/orchestrator /app/api/orchestrator
 COPY api/shared /app/api/shared
+COPY models /app/models
+COPY .env /app/.env
 
 EXPOSE 8000
 

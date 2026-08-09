@@ -29,12 +29,16 @@
   <div class="optimizer-content">
     <div class="optimizer-left">
       <h3>Optimisation Logistique (Google OR-Tools)</h3>
-      <p>Lance l'algorithme d'allocation combinatoire pour minimiser les coûts de transport et maximiser la valorisation des produits en attente.</p>
+      <p>Lance l'algorithme d'allocation combinatoire dynamique basé sur les contraintes réelles des ateliers en base de données.</p>
+      <div *ngIf="optimizationDone && optimizationStatus" style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
+        Statut: <strong>{{ optimizationStatus }}</strong> · 
+        Profit total estimé: <strong>{{ totalOptimizationProfit | number:'1.2-2' }} €</strong>
+      </div>
     </div>
     <div class="optimizer-right">
-      <div *ngIf="optimizationDone" class="opt-badge-done">✅ Allocation optimale calculée</div>
-      <button class="btn btn-primary" (click)="runOptimization()" [disabled]="isOptimizing || optimizationDone">
-        <svg *ngIf="!isOptimizing && !optimizationDone" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <div *ngIf="optimizationDone" class="opt-badge-done">✅ Allocation calculée ({{ allocations.length }} produits)</div>
+      <button class="btn btn-primary" (click)="runOptimization()" [disabled]="isOptimizing">
+        <svg *ngIf="!isOptimizing" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
         <span *ngIf="isOptimizing" class="spin-inline"></span>
@@ -58,17 +62,26 @@
           <circle cx="12" cy="10" r="3"></circle>
           <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 14 8 14s8-8.5 8-14a8 8 0 0 0-8-8z"></path>
         </svg>
-        Ateliers de Reconditionnement
+        Ateliers de Reconditionnement ({{ workshops.length }})
       </span>
+      <button class="btn btn-primary btn-sm" (click)="openAddModal()">+ Ajouter atelier</button>
     </div>
+
     <div class="workshop-list">
+      <div *ngIf="workshops.length === 0" style="text-align:center; padding: 2rem; opacity: 0.6;">
+        <p>Aucun atelier configuré. Cliquez sur "+ Ajouter atelier" pour commencer.</p>
+      </div>
       <div class="workshop-card" *ngFor="let w of workshops" [class.selected]="selectedWorkshop?.id === w.id" (click)="selectWorkshop(w)">
         <div class="workshop-header">
           <div class="workshop-name-block">
             <span class="workshop-name">{{ w.name }}</span>
             <span class="workshop-city">{{ w.city }}, {{ w.region }}</span>
           </div>
-          <span [class]="getStatusBadgeClass(w.status)">{{ getStatusLabel(w.status) }}</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span [class]="getStatusBadgeClass(w.status)">{{ getStatusLabel(w.status) }}</span>
+            <button class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" (click)="openEditModal(w, $event)" title="Modifier">✏️</button>
+            <button class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" (click)="deleteWorkshop(w, $event)" title="Supprimer">🗑️</button>
+          </div>
         </div>
 
         <div class="workshop-metrics">
@@ -85,7 +98,7 @@
           <span class="workshop-tag" *ngFor="let s of w.specialties">{{ s }}</span>
         </div>
 
-        <!-- Expanded details -->
+        <!-- Expanded details with constraints -->
         <div class="workshop-expanded" *ngIf="selectedWorkshop?.id === w.id">
           <div class="expanded-grid">
             <div class="expanded-item">
@@ -94,15 +107,23 @@
             </div>
             <div class="expanded-item">
               <span class="exp-label">Coût moyen remise</span>
-              <span class="exp-value">{{ w.avgCost }} €/produit</span>
+              <span class="exp-value">{{ w.avg_cost }} €/produit</span>
             </div>
             <div class="expanded-item">
               <span class="exp-label">Distance depuis Paris</span>
               <span class="exp-value">{{ w.distance }} km</span>
             </div>
             <div class="expanded-item">
-              <span class="exp-label">Disponibilité</span>
-              <span class="exp-value" [style.color]="getOccupancyColor(w.occupancy)">{{ w.capacity - Math.round(w.capacity * w.occupancy / 100) }} créneaux libres</span>
+              <span class="exp-label">Créneaux libres</span>
+              <span class="exp-value" [style.color]="getOccupancyColor(w.occupancy)">{{ w.capacity - Math.round(w.capacity * w.occupancy / 100) }} créneaux</span>
+            </div>
+            <div class="expanded-item">
+              <span class="exp-label">Seuil profit min.</span>
+              <span class="exp-value" style="color: var(--accent-yellow);">≥ {{ w.min_profit_threshold }} €</span>
+            </div>
+            <div class="expanded-item">
+              <span class="exp-label">Max par batch</span>
+              <span class="exp-value">{{ w.max_items_per_batch }} produits</span>
             </div>
           </div>
         </div>
@@ -120,14 +141,23 @@
           <circle cx="5.5" cy="18.5" r="2.5"></circle>
           <circle cx="18.5" cy="18.5" r="2.5"></circle>
         </svg>
-        Plan d'Allocation & Expédition
+        Plan d'Allocation &amp; Expédition
       </span>
       <div class="cost-summary">
-        <span class="cost-total">{{ globalStats.totalTransportCost | number }} € coût transport total</span>
+        <span class="cost-total">{{ globalStats.totalTransportCost | number }} € coût transport estimé</span>
       </div>
     </div>
 
-    <div class="platana-table-container">
+    <div *ngIf="!optimizationDone && allocations.length === 0" style="text-align:center; padding: 3rem; opacity: 0.6;">
+      <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">🤖</p>
+      <p>Lancez l'optimisation pour voir les allocations calculées par l'IA.</p>
+    </div>
+
+    <div *ngIf="optimizationDone && allocations.length === 0" style="text-align:center; padding: 2rem; opacity: 0.6;">
+      <p>Aucune allocation trouvée. Vérifiez les contraintes des ateliers (seuil de profit minimum).</p>
+    </div>
+
+    <div class="platana-table-container" *ngIf="allocations.length > 0">
       <table class="platana-table">
         <thead>
           <tr>
@@ -142,7 +172,7 @@
           <tr *ngFor="let a of allocations">
             <td>
               <div class="alloc-product">
-                <code style="font-size: 0.72rem; color: var(--light-text-muted); display: block;">{{ a.productId }}</code>
+                <code style="font-size: 0.72rem; color: var(--light-text-muted); display: block;">{{ a.productId | slice:0:12 }}...</code>
                 <strong style="font-size: 0.85rem;">{{ a.productName }}</strong>
               </div>
             </td>
@@ -157,12 +187,89 @@
               <span class="delay-badge">{{ a.estimatedDelay }}j</span>
             </td>
             <td>
-              <strong>{{ a.totalCost }} €</strong>
+              <strong>{{ a.totalCost | number:'1.2-2' }} €</strong>
               <span style="display: block; font-size: 0.72rem; color: var(--light-text-muted);">transport: {{ a.transportCost }}€</span>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Workshop CRUD Modal ──────────────────────────────────── -->
+<div class="modal-backdrop" *ngIf="showWorkshopModal" (click)="closeModal()">
+  <div class="modal-box" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ isEditMode ? 'Modifier l\'atelier' : 'Nouvel Atelier' }}</h3>
+      <button class="icon-btn-close" (click)="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid-2">
+        <div class="form-group">
+          <label class="form-label">Nom</label>
+          <input type="text" class="form-input" [(ngModel)]="editingWorkshop.name" placeholder="Atelier Platana Nord">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Statut</label>
+          <select class="form-select" [(ngModel)]="editingWorkshop.status">
+            <option value="available">Disponible</option>
+            <option value="busy">Chargé</option>
+            <option value="full">Complet</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ville</label>
+          <input type="text" class="form-input" [(ngModel)]="editingWorkshop.city" placeholder="Lyon">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Région</label>
+          <input type="text" class="form-input" [(ngModel)]="editingWorkshop.region" placeholder="Auvergne-Rhône-Alpes">
+        </div>
+      </div>
+
+      <hr style="border-color: var(--border); margin: 1rem 0;">
+      <p style="font-size: 0.85rem; font-weight: 600; color: var(--accent-yellow); margin-bottom: 0.75rem;">⚙️ Contraintes logistiques (utilisées par OR-Tools)</p>
+
+      <div class="modal-grid-2">
+        <div class="form-group">
+          <label class="form-label">Capacité totale (produits/mois)</label>
+          <input type="number" class="form-input" [(ngModel)]="editingWorkshop.capacity" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Taux d'occupation (%)</label>
+          <input type="number" class="form-input" [(ngModel)]="editingWorkshop.occupancy" min="0" max="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Coût moyen remise (€/produit)</label>
+          <input type="number" class="form-input" [(ngModel)]="editingWorkshop.avg_cost" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Distance depuis Paris (km)</label>
+          <input type="number" class="form-input" [(ngModel)]="editingWorkshop.distance" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Seuil profit minimum (€)</label>
+          <input type="number" class="form-input" [(ngModel)]="editingWorkshop.min_profit_threshold" min="0" step="5">
+          <small style="color: var(--light-text-muted); font-size: 0.75rem;">Seuls les produits avec profit ≥ ce seuil seront alloués.</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max produits par batch</label>
+          <input type="number" class="form-input" [(ngModel)]="editingWorkshop.max_items_per_batch" min="1">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Spécialités (séparées par virgule)</label>
+        <input type="text" class="form-input" [(ngModel)]="workshopSpecialtiesInput" placeholder="Smartphone, Ordinateur, Tablette">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeModal()" [disabled]="isSavingWorkshop">Annuler</button>
+      <button class="btn btn-primary" (click)="saveWorkshop()" [disabled]="isSavingWorkshop">
+        <span *ngIf="isSavingWorkshop" class="btn-spinner"></span>
+        {{ isSavingWorkshop ? 'Enregistrement...' : isEditMode ? 'Mettre à jour' : 'Créer l\'atelier' }}
+      </button>
     </div>
   </div>
 </div>

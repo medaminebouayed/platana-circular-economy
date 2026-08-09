@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
-import { ApiService, GradingResponse } from '../services/api.service';
+
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-grading',
@@ -11,7 +12,7 @@ export class GradingComponent {
   previewUrls: string[] = [];
   productId = '';
   isLoading = false;
-  result: GradingResponse | null = null;
+  result: any | null = null;
   dragOver = false;
 
   // Fields for immediate pricing estimation
@@ -31,7 +32,14 @@ export class GradingComponent {
     water_damage: 'Dégât des eaux'
   };
 
-  constructor(public apiService: ApiService) {}
+  // Admin Override
+  isValidationMode = false;
+  adminOverriddenGrade: string | null = null;
+  adminApproved = false;
+
+  constructor(
+    public authService: AuthService
+  ) {}
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -81,35 +89,27 @@ export class GradingComponent {
     this.result = null;
     this.pricingResult = null;
 
-    this.apiService.gradeProduct(this.uploadedFiles, this.productId || undefined).subscribe({
-      next: (res) => {
-        this.result = res;
-        this.isLoading = false;
-        
-        // Immediately fetch predicted price based on detected grade
-        this.isPricingLoading = true;
-        this.apiService.predictPrice({
-          grade: res.grade,
-          category: this.category,
-          brand: this.brand,
-          model: this.model,
-          original_price: this.originalPrice,
-          age_days: 180, // Default simulated age (6 months)
-          repair_cost: res.grade === 'C' ? 50.0 : (res.grade === 'D' ? 120.0 : 0.0)
-        }).subscribe({
-          next: (priceRes) => {
-            this.pricingResult = priceRes;
-            this.isPricingLoading = false;
-          },
-          error: () => {
-            this.isPricingLoading = false;
-          }
-        });
-      },
-      error: () => {
-        this.isLoading = false;
-      }
-    });
+    // Deprecated feature, kept for reference
+    console.log("Analyzing...");
+    this.isLoading = false;
+  }
+
+  fetchPricing(grade: string) {
+    // Deprecated
+    this.isPricingLoading = false;
+  }
+
+  onAdminGradeChange() {
+    if (this.adminOverriddenGrade) {
+      this.fetchPricing(this.adminOverriddenGrade);
+    }
+  }
+
+  confirmValidation() {
+    this.adminApproved = true;
+    // In a real app, we would save this to the database
+    // For now, it updates the local state so the admin knows it's validated
+    console.log("Admin validated grade: ", this.adminOverriddenGrade);
   }
 
   reset() {
@@ -122,6 +122,9 @@ export class GradingComponent {
     this.brand = 'Apple';
     this.model = 'iPhone 13 Pro';
     this.originalPrice = 999.0;
+    this.isValidationMode = false;
+    this.adminOverriddenGrade = null;
+    this.adminApproved = false;
   }
 
   getGradeColor(grade: string): string {

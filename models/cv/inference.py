@@ -13,11 +13,24 @@ class MultiViewGrader:
     def __init__(self, model_path):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         current_dir = Path(__file__).resolve().parent
-        self.model = MultiTaskDefectModel(num_grades=4, num_defects=len(DEFECT_CLASSES), mvtec_weights_path=str(current_dir / "checkpoints" / "backbone_mvtec.pt"))
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.model.to(self.device)
-        self.model.eval()
         self.transform = get_val_transforms()
+        
+        onnx_path = str(model_path).replace('.pth', '.onnx')
+        self.use_onnx = Path(onnx_path).exists()
+        
+        if self.use_onnx:
+            import onnxruntime as ort
+            print(f"Loading ONNX model from {onnx_path}")
+            self.ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
+        else:
+            print(f"Loading PyTorch model from {model_path}")
+            self.model = MultiTaskDefectModel(num_grades=4, num_defects=len(DEFECT_CLASSES), mvtec_weights_path=str(current_dir / "checkpoints" / "backbone_mvtec.pt"))
+            try:
+                self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            except:
+                self.model.load_state_dict(torch.load(model_path, map_location=self.device), strict=False)
+            self.model.to(self.device)
+            self.model.eval()
 
     def predict_defects_and_grade(self, list_of_image_paths):
         if not list_of_image_paths:
@@ -29,34 +42,43 @@ class MultiViewGrader:
             img_tensor = self.transform(img)
             images_tensor.append(img_tensor)
             
-        batch = torch.stack(images_tensor).to(self.device)
+        batch = torch.stack(images_tensor)
         
-        with torch.no_grad():
-            grade_logits, defect_logits = self.model(batch)
+        if self.use_onnx:
+            # ONNX Inference
+            ort_inputs = {self.ort_session.get_inputs()[0].name: batch.numpy()}
+            ort_outs = self.ort_session.run(None, ort_inputs)
+            grade_logits = torch.tensor(ort_outs[0])
+            defect_logits = torch.tensor(ort_outs[1])
+        else:
+            # PyTorch Inference
+            batch = batch.to(self.device)
+            with torch.no_grad():
+                grade_logits, defect_logits = self.model(batch)
             
-            # 1. Grade Prediction (Late Fusion: Max)
-            grade_probs = torch.softmax(grade_logits, dim=1)
-            grade_indices = torch.argmax(grade_probs, dim=1)
-            predicted_grades = [IDX_TO_GRADE[idx.item()] for idx in grade_indices]
-            final_grade = max(predicted_grades)
-            
-            # 2. Defects Prediction (Late Fusion: MAX Prob > 0.5)
-            defect_probs = torch.sigmoid(defect_logits)
-            # On prend la probabilité MAXIMALE parmi toutes les vues
-            max_defect_probs, _ = torch.max(defect_probs, dim=0)
-            
-            detected_defects = []
-            for i, prob in enumerate(max_defect_probs):
-                if prob > 0.5 and DEFECT_CLASSES[i] != "no_defect":
-                    detected_defects.append(DEFECT_CLASSES[i])
-                    
-            if not detected_defects:
-                detected_defects.append("no_defect")
-            
-            # Règle métier : surcharger le grade si un défaut critique est détecté
-            if "screen_crack" in detected_defects or "back_glass_crack" in detected_defects:
-                final_grade = "D"
+        # 1. Grade Prediction (Late Fusion: Max)
+        grade_probs = torch.softmax(grade_logits, dim=1)
+        grade_indices = torch.argmax(grade_probs, dim=1)
+        predicted_grades = [IDX_TO_GRADE[idx.item()] for idx in grade_indices]
+        final_grade = max(predicted_grades)
+        
+        # 2. Defects Prediction (Late Fusion: MAX Prob > 0.5)
+        defect_probs = torch.sigmoid(defect_logits)
+        # On prend la probabilité MAXIMALE parmi toutes les vues
+        max_defect_probs, _ = torch.max(defect_probs, dim=0)
+        
+        detected_defects = []
+        for i, prob in enumerate(max_defect_probs):
+            if prob > 0.5 and DEFECT_CLASSES[i] != "no_defect":
+                detected_defects.append(DEFECT_CLASSES[i])
                 
+        if not detected_defects:
+            detected_defects.append("no_defect")
+        
+        # Règle métier : surcharger le grade si un défaut critique est détecté
+        if "screen_crack" in detected_defects or "back_glass_crack" in detected_defects:
+            final_grade = "D"
+            
         print(f"Individual view grades: {predicted_grades}")
         print(f"Detected defects: {detected_defects}")
         return final_grade, detected_defects

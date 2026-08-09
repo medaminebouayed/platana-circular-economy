@@ -21,94 +21,100 @@
       </div>
     </div>
 
-    <!-- Nav section label -->
-    <div class="nav-section-label">Navigation</div>
+    <!-- ─── ADMIN MENU ─────────────────── -->
+    <ng-container *ngIf="authService.hasRole(['ADMIN'])">
+      <div class="nav-section-label">Administration</div>
+      <ul class="sidebar-menu">
 
-    <!-- Menu items -->
-    <ul class="sidebar-menu">
-      <li class="menu-item" routerLinkActive="active" *ngIf="authService.hasRole(['admin','rse','revente'])">
-        <a routerLink="/dashboard" (click)="mobileMenuOpen = false">
-          <span class="menu-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="7" height="9" rx="1"></rect>
-              <rect x="14" y="3" width="7" height="5" rx="1"></rect>
-              <rect x="14" y="12" width="7" height="9" rx="1"></rect>
-              <rect x="3" y="16" width="7" height="5" rx="1"></rect>
-            </svg>
-          </span>
-          <span class="menu-label">Tableau de Bord</span>
-        </a>
-      </li>
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/dashboard" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+            </span>
+            <span class="menu-label">Validation Produits</span>
+          </a>
+        </li>
 
-      <li class="menu-item" routerLinkActive="active" *ngIf="authService.hasRole(['admin','atelier'])">
-        <a routerLink="/grading" (click)="mobileMenuOpen = false">
-          <span class="menu-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-              <circle cx="12" cy="13" r="4"></circle>
-            </svg>
-          </span>
-          <span class="menu-label">Grading Vision CV</span>
-        </a>
-      </li>
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/grading" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </span>
+            <span class="menu-label">Grading Vision CV</span>
+          </a>
+        </li>
 
-      <li class="menu-item" routerLinkActive="active" *ngIf="authService.hasRole(['admin','revente'])">
-        <a routerLink="/pricing" (click)="mobileMenuOpen = false">
-          <span class="menu-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-              <line x1="7" y1="7" x2="7.01" y2="7"></line>
-            </svg>
-          </span>
-          <span class="menu-label">Pricing Prédictif</span>
-        </a>
-      </li>
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/pricing" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+            </span>
+            <span class="menu-label">Pricing Prédictif</span>
+          </a>
+        </li>
 
-      <li class="menu-item" routerLinkActive="active" *ngIf="authService.hasRole(['admin','revente'])">
-        <a routerLink="/product-sheet" (click)="mobileMenuOpen = false">
-          <span class="menu-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <line x1="10" y1="9" x2="8" y2="9"></line>
-            </svg>
-          </span>
-          <span class="menu-label">Fiches &amp; Publications</span>
-        </a>
-      </li>
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/product-sheet" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            </span>
+            <span class="menu-label">Fiches &amp; Publications</span>
+          </a>
+        </li>
 
-      <li class="menu-item" routerLinkActive="active" *ngIf="authService.hasRole(['admin','atelier','rse'])">
-        <a routerLink="/logistics" (click)="mobileMenuOpen = false">
-          <span class="menu-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="1" y="3" width="15" height="13"></rect>
-              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-              <circle cx="5.5" cy="18.5" r="2.5"></circle>
-              <circle cx="18.5" cy="18.5" r="2.5"></circle>
-            </svg>
-          </span>
-          <span class="menu-label">Logistique RSE</span>
-        </a>
-      </li>
-    </ul>
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/logistics" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+            </span>
+            <span class="menu-label">Logistique RSE</span>
+          </a>
+        </li>
+
+        <div class="nav-section-label" style="margin-top: 0.5rem;">Préférences</div>
+
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/settings/admin" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </span>
+            <span class="menu-label">Paramètres Admin</span>
+          </a>
+        </li>
+
+      </ul>
+    </ng-container>
+
+    <!-- ─── USER MENU ─────────────────── -->
+    <ng-container *ngIf="authService.hasRole(['USER'])">
+      <div class="nav-section-label">Mon Espace</div>
+      <ul class="sidebar-menu">
+
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/user-portal" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15c.7-1.2 1-2.5.7-3.9-.6-2-2.4-3.5-4.4-3.5h-1.2c-.7-3-3.2-5.2-6.2-5.6-3-.3-5.9 1.3-7.3 4-1.2 2.5-1 6.5.5 8.8m8.7-1.6V21"></path><path d="M16 16l-4-4-4 4"></path></svg>
+            </span>
+            <span class="menu-label">Soumettre un Produit</span>
+          </a>
+        </li>
+
+        <div class="nav-section-label" style="margin-top: 0.5rem;">Préférences</div>
+
+        <li class="menu-item" routerLinkActive="active">
+          <a routerLink="/settings/user" (click)="mobileMenuOpen = false">
+            <span class="menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </span>
+            <span class="menu-label">Paramètres</span>
+          </a>
+        </li>
+
+      </ul>
+    </ng-container>
 
     <!-- Spacer -->
     <div style="flex: 1;"></div>
-
-    <!-- API Simulation Toggle -->
-    <div class="nav-section-label" style="margin-top: 0;">Paramètres</div>
-    <div class="sim-box">
-      <div class="sim-left">
-        <span class="sim-dot" [class.sim-dot-live]="!apiService.isSimulationMode"></span>
-        <span class="sim-label">{{ apiService.isSimulationMode ? 'Mode Simulation' : 'API Directe' }}</span>
-      </div>
-      <label class="switch">
-        <input type="checkbox" [checked]="apiService.isSimulationMode" (change)="toggleSimulationMode()">
-        <span class="slider"></span>
-      </label>
-    </div>
 
     <!-- User card at bottom -->
     <div class="sidebar-user">
@@ -130,9 +136,9 @@
   <!-- ═══════════════════════════ MAIN AREA ═══════════════════════════ -->
   <div class="main-wrapper">
 
-    <!-- TOP NAVBAR (always visible on all screen sizes) -->
+    <!-- TOP NAVBAR -->
     <header class="top-navbar">
-      <!-- Left: Hamburger (mobile) + breadcrumb -->
+      <!-- Left: Hamburger + breadcrumb -->
       <div class="navbar-left">
         <button class="burger-btn" (click)="toggleMobileMenu()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -144,20 +150,24 @@
         <div class="navbar-breadcrumb">
           <span class="breadcrumb-root">Platana</span>
           <span class="breadcrumb-sep">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </span>
           <span class="breadcrumb-current">{{ getRouteTitle() }}</span>
         </div>
       </div>
 
-      <!-- Right: API badge + avatar -->
+      <!-- Right: Theme toggle + role badge + avatar -->
       <div class="navbar-right">
-        <span class="api-badge" [class.api-badge-sim]="apiService.isSimulationMode" [class.api-badge-live]="!apiService.isSimulationMode">
-          <span class="api-dot"></span>
-          {{ apiService.isSimulationMode ? 'Simulation' : 'Live API' }}
+        <!-- Role badge -->
+        <span class="navbar-role-badge" [class.admin-badge]="authService.hasRole(['ADMIN'])">
+          {{ user.roleLabel }}
         </span>
+
+        <!-- Theme Toggle -->
+        <button class="icon-btn theme-btn" (click)="toggleTheme()" [title]="isDarkTheme ? 'Mode clair' : 'Mode sombre'">
+          <svg *ngIf="!isDarkTheme" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          <svg *ngIf="isDarkTheme" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
 
         <div class="navbar-divider"></div>
 
@@ -181,7 +191,7 @@
   </div><!-- /main-wrapper -->
 </ng-container>
 
-<!-- LOGIN PAGE (unauthenticated) -->
+<!-- LOGIN PAGES (unauthenticated) -->
 <ng-template #loginShell>
   <router-outlet></router-outlet>
 </ng-template>

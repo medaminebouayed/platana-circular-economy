@@ -1,119 +1,93 @@
 """
-API FastAPI pour le service de pricing.
+Platana Pricing Service — Production-ready FastAPI microservice.
+Responsible for: ML-based market price prediction for used electronics.
+Port: 8002
 """
-
-from contextlib import asynccontextmanager
-from pathlib import Path
 import os
-import sys
+import logging
+from pathlib import Path
 
-import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# ── Config ─────────────────────────────────────────────────────
+import sys
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from models.pricing.model import PricingModel
-from models.pricing.features import FeatureEngineer
-from api.shared.schemas import PricingRequest, PricingResponse
+env_path = Path(__file__).resolve().parents[2] / '.env'
+load_dotenv(dotenv_path=env_path)
 
+from shared.schemas import PricingRequest, PricingResponse
 
-MODEL_PATH = os.getenv("MODEL_PATH", "models/pricing/checkpoints/model.pkl")
-model = None
-engineer = None
-is_simulated = False
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | pricing_service | %(message)s")
+logger = logging.getLogger(__name__)
 
+# ── App ─────────────────────────────────────────────────────────
+app = FastAPI(
+    title="Platana Pricing Service",
+    description="ML-based market price prediction for used electronics.",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global model, engineer, is_simulated
-    
-    print(f"[INFO] Recherche du modèle de pricing à {MODEL_PATH}...")
-    if not os.path.exists(MODEL_PATH):
-        print(f"[WARN] Modèle de pricing absent à {MODEL_PATH}. Activation de la simulation.")
-        is_simulated = True
-        yield
-        return
-
-    try:
-        model = PricingModel.load(MODEL_PATH)
-        engineer = FeatureEngineer()  # Recréé, les encoders sont dans le modèle
-        print("[OK] Modèle de pricing chargé!")
-    except Exception as e:
-        print(f"[ERROR] Échec du chargement du modèle de pricing : {e}. Activation de la simulation.")
-        is_simulated = True
-
-    yield
-    print("[INFO] Arrêt du service pricing")
-
-
-app = FastAPI(title="Platana Pricing Service", version="1.0.0", lifespan=lifespan)
-
-# Enable CORS for frontend interaction
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:4200", "http://localhost", "http://orchestrator:8000", "http://main-service:8003"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ── Model Loading ───────────────────────────────────────────────
+MODEL_PATH = os.getenv("PRICING_MODEL_PATH", str(
+    Path(__file__).resolve().parents[2] / "models" / "pricing" / "checkpoints" / "model.pkl"
+))
+FE_PATH = os.getenv("PRICING_FEATURE_ENGINEER_PATH", str(
+    Path(__file__).resolve().parents[2] / "models" / "pricing" / "checkpoints" / "feature_engineer.pkl"
+))
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "model_loaded": model is not None, "is_simulated": is_simulated}
+model = None
+engineer = None
 
-
-@app.post("/predict", response_model=PricingResponse)
-async def predict_price(request: PricingRequest):
-    """Prédit le prix de revente."""
-    
-    if is_simulated or model is None:
-        # High-fidelity regression simulation matching frontend pricing model
-        basePrices = {
-            'A': 0.80,
-            'B': 0.68,
-            'C': 0.52,
-            'D': 0.35
-        }
-        gradeFactor = basePrices.get(request.grade, 0.60)
-        
-        # Linear aging decay (up to 60%)
-        ageLossRatio = min(request.age_days * 0.0004, 0.60)
-        
-        predicted = request.original_price * gradeFactor * (1 - ageLossRatio)
-        
-        # Subtract repair cost with overhead factor
-        repair_cost = request.repair_cost or 0.0
-        predicted = max(predicted - (repair_cost * 1.15), request.original_price * 0.1)
-
-        # Seasonal adjustments
-        explanation = f"Estimation de pricing pour {request.brand} {request.model} en grade {request.grade}"
-        if request.season == 'summer':
-            predicted *= 0.95
-            explanation += '. Ajustement de -5% appliqué pour la saison creuse estivale.'
-        elif request.season == 'winter':
-            predicted *= 1.05
-            explanation += '. Ajustement de +5% appliqué pour la période des fêtes hivernales.'
-        else:
-            explanation += f". Modèle de décote linéaire appliqué pour l'âge de {request.age_days} jours."
-            
-        explanation += f" Rentabilité estimée après déduction de {repair_cost}€ de frais de remise en état."
-        
-        predicted = round(predicted, 2)
-        interval = (round(predicted * 0.92, 2), round(predicted * 1.08, 2))
-        ratio = round(predicted / request.original_price, 2) if request.original_price else 0.0
-
-        return PricingResponse(
-            predicted_price=predicted,
-            confidence_interval=interval,
-            price_ratio=ratio,
-            explanation=explanation
-        )
-
-    # Real inference
+@app.on_event("startup")
+async def startup():
+    global model, engineer
     try:
-        # Crée un DataFrame
+        import joblib
+        if Path(MODEL_PATH).exists() and Path(FE_PATH).exists():
+            from models.pricing.model import PricingModel
+            model = PricingModel.load(MODEL_PATH)
+            engineer = joblib.load(FE_PATH)
+            logger.info("Pricing model loaded from: %s", MODEL_PATH)
+        else:
+            logger.warning("Pricing model not found. Running in simulation mode.")
+    except Exception as e:
+        logger.warning("Failed to load pricing model: %s. Simulation mode active.", e)
+
+# ── Health Check ─────────────────────────────────────────────────
+@app.get("/health", tags=["health"])
+async def health():
+    return {"status": "ok", "service": "pricing_service", "model_loaded": model is not None}
+
+# ── Grade-to-ratio mapping (simulation fallback) ─────────────────
+_GRADE_RATIOS = {'A': 0.80, 'A+': 0.90, 'B': 0.65, 'C': 0.50, 'D': 0.32}
+
+# ── Endpoints ───────────────────────────────────────────────────
+@app.post("/predict", response_model=PricingResponse, tags=["pricing"])
+async def predict_price(request: PricingRequest):
+    """Predict the resale market price for a product based on grade and characteristics."""
+
+    # Simulation fallback
+    if model is None or engineer is None:
+        ratio = _GRADE_RATIOS.get(request.grade, 0.5)
+        price = round(request.original_price * ratio, 2)
+        logger.info("Simulation mode: grade=%s, original=%.2f, predicted=%.2f", request.grade, request.original_price, price)
+        return PricingResponse(predicted_price=price, confidence_interval=(round(price * 0.9, 2), round(price * 1.1, 2)))
+
+    try:
+        import pandas as pd
         df = pd.DataFrame([{
             "grade": request.grade,
             "category": request.category,
@@ -121,37 +95,15 @@ async def predict_price(request: PricingRequest):
             "model": request.model,
             "original_price": request.original_price,
             "age_days": request.age_days,
-            "repair_cost": request.repair_cost,
-            "season": request.season or "unknown"
         }])
-        
-        # Features
         df_features = engineer.transform(df)
         X = df_features[engineer.get_feature_names()]
-        
-        # Prédiction
-        price = model.predict(X)[0]
-        
-        # Intervalle de confiance (simplifié ±10%)
-        interval = (price * 0.9, price * 1.1)
-        
-        # Explication
-        explanation = (
-            f"Prix de {price:.0f}€ estimé pour un {request.brand} {request.model} "
-            f"grade {request.grade}, âge {request.age_days} jours."
-        )
-        
+        price = float(model.predict(X)[0])
+        logger.info("Pricing result: grade=%s, predicted=%.2f", request.grade, price)
         return PricingResponse(
             predicted_price=round(price, 2),
-            confidence_interval=(round(interval[0], 2), round(interval[1], 2)),
-            price_ratio=round(price / request.original_price, 2) if request.original_price else 0.0,
-            explanation=explanation
+            confidence_interval=(round(price * 0.9, 2), round(price * 1.1, 2))
         )
     except Exception as e:
-        # Fallback to simulated pricing if inference fails
-        raise HTTPException(500, f"Erreur interne lors de l'inférence : {e}")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+        logger.error("Pricing prediction failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Pricing error: {e}")

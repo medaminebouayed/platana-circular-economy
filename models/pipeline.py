@@ -78,11 +78,16 @@ class RefurbDecisionEngine:
         refurb_cost = round(refurb_cost, 2)
         potential_profit = round(potential_profit, 2)
         
-        if potential_profit >= self.min_margin:
-            decision = "RECONDITIONNER"
-            action = f"Mettre en vente à {market_price}€"
+        # Orchestrator-aligned 3-tier decision logic
+        if potential_profit >= 50.0:
+            decision = "RESALE_DIRECT"
+            action = f"Revente directe en l'état à {market_price}€"
+            product_sheet = None
+        elif potential_profit >= 20.0:
+            decision = "RECONDITION"
+            action = f"Reconditionnement rentable puis vente à {market_price}€"
             
-            # --- GÉNÉRATION GenAI ET PDF ---
+            # --- GÉNÉRATION GenAI ET PDF (Uniquement pour RECONDITION) ---
             print("\n[GénAI] Génération de la fiche produit en cours...")
             product_sheet = self.sheet_generator.generate_sheet_text(
                 model_name=model_name,
@@ -98,8 +103,8 @@ class RefurbDecisionEngine:
             product_sheet["pdf_path"] = str(pdf_path)
             
         else:
-            decision = "RECYCLER / DETRUIRE"
-            action = f"Non rentable (Perte estimée: {potential_profit}€)"
+            decision = "RECYCLE"
+            action = f"Non rentable pour Platana (Profit estimé: {potential_profit}€)"
             product_sheet = None
             
         return {

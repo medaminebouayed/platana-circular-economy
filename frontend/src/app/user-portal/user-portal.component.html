@@ -1,0 +1,283 @@
+<div class="portal-shell">
+
+  <!-- Header & Tabs -->
+  <div class="portal-header-wrapper">
+    <div class="portal-header-content">
+      <div class="header-text">
+        <h1>Mon Espace Vendeur</h1>
+        <p>Estimez et revendez vos équipements électroniques en quelques clics grâce à notre IA.</p>
+      </div>
+      <div class="header-tabs">
+        <button class="tab-btn" [class.active]="activeTab === 'submit'" (click)="activeTab = 'submit'">Nouveau Dépôt</button>
+        <button class="tab-btn" [class.active]="activeTab === 'history'" (click)="activeTab = 'history'">Mon Historique</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB: SUBMIT ═══════ -->
+  <div *ngIf="activeTab === 'submit'">
+    <!-- ═══════ STEP 1: FORM ═══════ -->
+    <div class="portal-layout" *ngIf="currentStep === 'form'">
+
+      <!-- LEFT: Hero / Info -->
+      <div class="portal-hero">
+        <div class="hero-badge">🌿 Économie Circulaire</div>
+        <h1 class="hero-title">Donnez une seconde vie<br>à votre appareil</h1>
+        <p class="hero-sub">Soumettez votre produit en quelques secondes. Notre IA l'évalue automatiquement et vous propose le meilleur prix de revente.</p>
+
+        <div class="hero-steps">
+          <div class="hero-step">
+            <div class="step-number">1</div>
+            <div class="step-text">
+              <strong>Renseignez votre produit</strong>
+              <span>Marque, modèle, année et photos</span>
+            </div>
+          </div>
+          <div class="hero-step">
+            <div class="step-number">2</div>
+            <div class="step-text">
+              <strong>Analyse IA instantanée</strong>
+              <span>Notre moteur Dify évalue l'état et le prix</span>
+            </div>
+          </div>
+          <div class="hero-step">
+            <div class="step-number">3</div>
+            <div class="step-text">
+              <strong>Validation & Publication</strong>
+              <span>L'équipe Platana valide et publie votre annonce</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-eco-badge">
+          <span>♻️</span>
+          <span>Chaque appareil reconditionné évite <strong>~70kg de CO₂</strong></span>
+        </div>
+      </div>
+
+      <!-- RIGHT: Form card -->
+      <div class="portal-form-wrap">
+        <div class="platana-card portal-form-card">
+          <div class="platana-card-header">
+            <span class="platana-card-title">📦 Déposer mon produit</span>
+          </div>
+
+          <!-- Product Info -->
+          <div class="grid-2" style="gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Marque *</label>
+              <input type="text" [(ngModel)]="form.brand" class="form-input" placeholder="Apple, Samsung...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Modèle *</label>
+              <input type="text" [(ngModel)]="form.model" class="form-input" placeholder="iPhone 13, Galaxy S22...">
+            </div>
+          </div>
+
+          <div class="grid-2" style="gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Année d'achat</label>
+              <input type="number" [(ngModel)]="form.year" class="form-input" min="2010" [max]="2025">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prix d'achat d'origine (€) *</label>
+              <input type="number" [(ngModel)]="form.originalPrice" class="form-input" min="0" step="10" placeholder="999">
+            </div>
+          </div>
+
+          <!-- Image Upload Zone -->
+          <div class="form-group">
+            <label class="form-label">Photos du produit</label>
+            <div class="upload-zone" [class.drag-active]="dragOver" [class.has-files]="uploadedFiles.length > 0"
+              (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
+              <input #fileInput type="file" multiple accept="image/*" (change)="onFileSelect($event)" style="display:none">
+
+              <div *ngIf="uploadedFiles.length === 0" class="upload-placeholder" (click)="fileInput.click()">
+                <div class="upload-icon-wrap">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <span class="upload-title">Déposer vos photos ici</span>
+                <span class="upload-hint">ou <u>parcourir</u> • JPG, PNG • Max 5 photos</span>
+              </div>
+
+              <div *ngIf="uploadedFiles.length > 0" class="preview-grid-user">
+                <div class="preview-item-user" *ngFor="let url of previewUrls; let i = index">
+                  <img [src]="url" [alt]="'Vue ' + (i+1)">
+                  <button class="preview-remove" (click)="removeFile(i)">✕</button>
+                </div>
+                <div class="preview-add-user" *ngIf="uploadedFiles.length < 5" (click)="fileInput.click()">
+                  <span>+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary submit-btn" (click)="submitProduct()" [disabled]="!isFormValid()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2L11 13"></path><path d="M22 2L15 22 11 13 2 9l20-7z"></path>
+            </svg>
+            Soumettre pour évaluation IA
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ STEP 2: PROCESSING ═══════ -->
+    <div class="processing-screen" *ngIf="currentStep === 'processing'">
+      <div class="processing-card">
+        <div class="processing-logo">
+          <div class="processing-spinner"></div>
+        </div>
+        <h2>Analyse IA en cours...</h2>
+        <p>Notre moteur évalue votre produit en temps réel</p>
+
+        <div class="processing-steps">
+          <div class="proc-step" *ngFor="let step of processingSteps" [class]="'proc-step-' + step.status">
+            <div class="proc-icon">
+              <span *ngIf="step.status === 'done'">✓</span>
+              <span *ngIf="step.status === 'running'" class="proc-spinner"></span>
+              <span *ngIf="step.status === 'pending'" class="proc-dot"></span>
+            </div>
+            <span class="proc-label">{{ step.label }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ ERROR STATE ═══════ -->
+    <div class="result-screen" *ngIf="currentStep === 'error'">
+      <div class="result-success-header" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);">
+        <div class="result-checkmark" style="background: #ef4444;">❌</div>
+        <h2 style="color: #ef4444;">Échec de la soumission</h2>
+        <p>{{ errorMessage }}</p>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-primary" (click)="reset()">Réessayer</button>
+      </div>
+    </div>
+
+    <!-- ═══════ STEP 3: RESULT ═══════ -->
+    <div class="result-screen" *ngIf="currentStep === 'done'">
+
+      <div class="result-success-header">
+        <div class="result-checkmark">✅</div>
+        <h2>Produit soumis avec succès !</h2>
+        <p>Votre produit <strong>{{ form.brand }} {{ form.model }}</strong> a été évalué et envoyé à l'équipe de validation Platana.</p>
+        <div class="result-id-badge" *ngIf="submittedProductId">Référence : {{ submittedProductId }}</div>
+      </div>
+
+      <div class="result-cards-row" *ngIf="evaluationResult">
+
+        <!-- Grade Card -->
+        <div class="result-card" [style.border-top]="'4px solid ' + getGradeColor(evaluationResult.grade)">
+          <div class="result-card-icon">📊</div>
+          <div class="result-card-label">Grade Estimé</div>
+          <div class="grade-display" [style.color]="getGradeColor(evaluationResult.grade)">
+            {{ evaluationResult.grade }}
+          </div>
+        </div>
+
+        <!-- Price Card -->
+        <div class="result-card" style="border-top: 4px solid var(--primary);">
+          <div class="result-card-icon">💰</div>
+          <div class="result-card-label">Prix de Revente Estimé</div>
+          <div class="price-display">{{ evaluationResult.market_price | number }} €</div>
+        </div>
+
+        <!-- Decision Card -->
+        <div class="result-card" style="border-top: 4px solid var(--accent-blue);">
+          <div class="result-card-icon">🔍</div>
+          <div class="result-card-label">Recommandation IA</div>
+          <div class="decision-display">{{ getDecisionLabel(evaluationResult.decision) }}</div>
+        </div>
+      </div>
+
+      <!-- AI Generated Title & Description -->
+      <div class="platana-card result-desc-card" *ngIf="evaluationResult">
+        <div class="platana-card-header">
+          <span class="platana-card-title">📝 Fiche Produit Générée</span>
+          <span class="badge badge-info">En attente validation Admin</span>
+        </div>
+        <h3 class="listing-title-preview">{{ evaluationResult.title }}</h3>
+        <p class="listing-desc-preview">{{ evaluationResult.description }}</p>
+      </div>
+
+      <!-- What's next -->
+      <div class="platana-card next-steps-card">
+        <div class="platana-card-header">
+          <span class="platana-card-title">📋 Et maintenant ?</span>
+        </div>
+        <div class="next-steps-list">
+          <div class="next-step-item next-step-done">
+            <div class="next-dot done-dot">✓</div>
+            <span>Votre produit a été évalué par notre IA</span>
+          </div>
+          <div class="next-step-item">
+            <div class="next-dot pending-dot">2</div>
+            <span>L'équipe de validation Platana examine votre dossier</span>
+          </div>
+          <div class="next-step-item">
+            <div class="next-dot pending-dot">3</div>
+            <span>Une fois approuvé, votre produit sera publié sur nos marketplaces</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn btn-primary" (click)="reset()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
+          Soumettre un autre produit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB: HISTORY ═══════ -->
+  <div *ngIf="activeTab === 'history'" class="history-view">
+    <div class="platana-card">
+      <div class="platana-card-header">
+        <span class="platana-card-title">Historique de mes dépôts</span>
+        <button class="btn btn-secondary btn-sm" (click)="loadUserProducts()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Actualiser
+        </button>
+      </div>
+      
+      <div class="loading-state" *ngIf="isLoadingHistory">Chargement de votre historique...</div>
+      
+      <div class="empty-state" *ngIf="!isLoadingHistory && userProducts.length === 0">
+        <div class="empty-icon">📁</div>
+        <p>Vous n'avez pas encore déposé de produits.</p>
+        <button class="btn btn-primary" (click)="activeTab = 'submit'">Faire un premier dépôt</button>
+      </div>
+
+      <div class="history-list" *ngIf="!isLoadingHistory && userProducts.length > 0">
+        <div class="history-item" *ngFor="let product of userProducts">
+          <div class="h-item-img">
+            <img *ngIf="product.image_paths && product.image_paths.length" src="assets/placeholder.png" alt="Photo">
+            <div *ngIf="!product.image_paths || !product.image_paths.length" class="no-img">📸</div>
+          </div>
+          <div class="h-item-info">
+            <h4>{{ product.brand }} {{ product.model }}</h4>
+            <p>Déposé le : {{ product.created_at | date:'dd/MM/yyyy' }} (Estimation d'achat : {{ product.original_price }}€)</p>
+          </div>
+          <div class="h-item-status">
+            <span class="badge" [ngClass]="{
+              'badge-warning': product.status === 'PENDING_EVALUATION' || product.status === 'PENDING_ADMIN_REVIEW' || product.status === 'REVIEW_READY',
+              'badge-success': product.status === 'PUBLISHED',
+              'badge-info': product.status === 'REVIEWED',
+              'badge-error': product.status === 'AI_ERROR'
+            }">
+              {{ product.status }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

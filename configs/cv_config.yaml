@@ -7,7 +7,7 @@ model:
   fusion_type: "attention"  # mean, attention, transformer
   max_views: 5
   num_classes: 4  # A, B, C, D
-  num_defects: 6
+  num_defects: 3
   dropout: 0.3
   pretrained: true
 

@@ -1,0 +1,449 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  mode: workflow
+  name: Platana Orchestrator Workflow Original
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.7.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: 1786019999770-source-1786021117172-target
+      selected: false
+      source: '1786019999770'
+      sourceHandle: source
+      target: '1786021117172'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: if-else
+      id: 1786021117172-source-1786021657939-target
+      selected: false
+      source: '1786021117172'
+      sourceHandle: source
+      target: '1786021657939'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: code
+      id: 1786021657939-true-1786022964267-target
+      source: '1786021657939'
+      sourceHandle: 'true'
+      target: '1786022964267'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1786022964267-source-1786021896782-target
+      selected: false
+      source: '1786022964267'
+      sourceHandle: source
+      target: '1786021896782'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: 1786021896782-source-1786024028297-target
+      selected: false
+      source: '1786021896782'
+      sourceHandle: source
+      target: '1786024028297'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: end
+      id: 1786021657939-false-1786024125225-target
+      source: '1786021657939'
+      sourceHandle: 'false'
+      target: '1786024125225'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: User Input
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: brand
+          max_length: 20
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: brand
+        - default: ''
+          hint: ''
+          label: model
+          max_length: 50
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: model
+        - default: ''
+          hint: ''
+          label: year
+          options: []
+          placeholder: ''
+          required: true
+          type: number
+          variable: year
+        - default: ''
+          hint: ''
+          label: original_price
+          options: []
+          placeholder: ''
+          required: true
+          type: number
+          variable: original_price
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - image
+          allowed_file_upload_methods:
+          - local_file
+          - remote_url
+          default: ''
+          hide: false
+          hint: ''
+          label: images
+          max_length: 10
+          options: []
+          placeholder: ''
+          required: true
+          type: file-list
+          variable: images
+      height: 212
+      id: '1786019999770'
+      position:
+        x: 0
+        y: 0
+      positionAbsolute:
+        x: 0
+        y: 0
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-159
+            key: brand
+            type: text
+            value: '{{#1786019999770.brand#}}'
+          - id: key-value-232
+            key: model
+            type: text
+            value: '{{#1786019999770.model#}}'
+          - id: key-value-327
+            key: year
+            type: text
+            value: '{{#1786019999770.year#}}'
+          - id: key-value-366
+            key: original_price
+            type: text
+            value: '{{#1786019999770.original_price#}}'
+          - file:
+            - '1786019999770'
+            - images
+            id: key-value-445
+            key: files
+            type: file
+            value: ''
+          - id: key-value-579
+            key: ''
+            type: text
+            value: ''
+          type: form-data
+        headers: ''
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP Request
+        type: http-request
+        url: http://host.docker.internal:8000/process
+        variables: []
+      height: 136
+      id: '1786021117172'
+      position:
+        x: 342
+        y: 73.33333333333331
+      positionAbsolute:
+        x: 342
+        y: 73.33333333333331
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: contains
+            id: 1d0d4e0d-f132-4aa4-bd9d-0b8c63c799e5
+            value: RECONDITIONNER
+            varType: string
+            variable_selector:
+            - '1786021117172'
+            - body
+          id: 'true'
+          logical_operator: and
+        selected: false
+        title: IF/ELSE
+        type: if-else
+      height: 147
+      id: '1786021657939'
+      position:
+        x: 683
+        y: 90.49999999999997
+      positionAbsolute:
+        x: 683
+        y: 90.49999999999997
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1958
+            key: ''
+            type: text
+            value: "{\n  \"title\": \"{{{#1786022964267.title#}}}}\",\n  \"description\"\
+              : \"{{{#1786022964267.description#}}}}\",\n  \"price\": {{{#1786022964267.price#}}}},\n\
+              \  \"grade\": \"{{{#1786022964267.grade#}}}}\"\n}"
+          type: json
+        headers: Content-Type:application/json
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: true
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP Request 2
+        type: http-request
+        url: http://host.docker.internal:8000/publish-to-marketplace
+        variables: []
+      height: 136
+      id: '1786021896782'
+      position:
+        x: 1385
+        y: 59.39999999999996
+      positionAbsolute:
+        x: 1385
+        y: 59.39999999999996
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        code: "import json\n\ndef main(api_response) -> dict:\n    data = {}\n   \
+          \ # Si c'est du texte, on le convertit\n    if isinstance(api_response,\
+          \ str):\n        try: data = json.loads(api_response)\n        except: data\
+          \ = {}\n    elif isinstance(api_response, dict):\n        data = api_response\n\
+          \n    # Extraction sécurisée\n    fiche = data.get(\"fiche_produit\", {})\n\
+          \    if not isinstance(fiche, dict): fiche = {}\n\n    return {\n      \
+          \  \"title\": str(fiche.get(\"title\", \"\")),\n        \"description\"\
+          : str(fiche.get(\"description\", \"\")),\n        \"price\": float(data.get(\"\
+          market_price\", 0.0)),\n        \"grade\": str(data.get(\"grade\", \"\"\
+          ))\n    }"
+        code_language: python3
+        outputs:
+          description:
+            children: null
+            type: string
+          grade:
+            children: null
+            type: string
+          price:
+            children: null
+            type: number
+          title:
+            children: null
+            type: string
+        selected: false
+        title: Code
+        type: code
+        variables:
+        - value_selector:
+          - '1786021117172'
+          - body
+          value_type: string
+          variable: api_response
+      height: 51
+      id: '1786022964267'
+      position:
+        x: 1044
+        y: 93.39999999999996
+      positionAbsolute:
+        x: 1044
+        y: 93.39999999999996
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        outputs:
+        - value_selector:
+          - '1786021896782'
+          - body
+          value_type: string
+          variable: body
+        selected: false
+        title: Output
+        type: end
+      height: 87
+      id: '1786024028297'
+      position:
+        x: 1726
+        y: 106.56666666666662
+      positionAbsolute:
+        x: 1726
+        y: 106.56666666666662
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        outputs:
+        - value_selector:
+          - '1786021117172'
+          - body
+          value_type: string
+          variable: body_reject
+        selected: false
+        title: Output 2
+        type: end
+      height: 87
+      id: '1786024125225'
+      position:
+        x: 1044
+        y: 224.39999999999995
+      positionAbsolute:
+        x: 1044
+        y: 224.39999999999995
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    viewport:
+      x: 0
+      y: 200
+      zoom: 0.7
+  rag_pipeline_variables: []

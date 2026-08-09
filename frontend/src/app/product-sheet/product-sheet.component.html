@@ -103,7 +103,10 @@
             <h2 class="listing-title">{{ result.title }}</h2>
           </div>
           <div class="listing-price-block">
-            <div class="listing-price">{{ form.predictedPrice }} €</div>
+            <div class="listing-price" style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.predictedPrice }} €
+              <span class="badge badge-success" style="font-size: 0.7rem;" title="Validation Humaine effectuée par l'Admin">✓ Validé Admin</span>
+            </div>
             <div class="listing-price-compare">Prix neuf : {{ form.originalPrice }} €</div>
           </div>
         </div>
