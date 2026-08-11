@@ -124,7 +124,7 @@ def main():
     # repo_root est le dossier parent (la racine du projet)
     repo_root = models_dir.parent
     
-    model_path = models_dir / "cv" / "checkpoints" / "best_multitask_model.pth"
+    model_path = models_dir / "cv" / "checkpoints" / "best_multitask_model.onnx"
     
     print("Initialisation du modèle de Vision...")
     grader = MultiViewGrader(str(model_path))

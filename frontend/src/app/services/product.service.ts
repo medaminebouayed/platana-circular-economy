@@ -8,7 +8,7 @@ import { EvaluationResponse, AdminReviewPayload, PublishResponse } from '../mode
     providedIn: 'root'
 })
 export class ProductService {
-    // le proxy.conf.json redirige /api vers localhost:8000
+
     private apiUrl = '/api/products';
 
     constructor(private http: HttpClient) { }

@@ -1,0 +1,23 @@
+# Complete local development, training, and ONNX-export environment.
+-r api/cv_service/requirements.txt
+-r api/pricing_service/requirements.txt
+-r api/orchestrator/requirements.txt
+-r api/main_service/requirements.txt
+
+# CV training and one-time .pth -> .onnx export only; never installed by cv-service.
+torch==2.6.0
+torchvision==0.21.0
+timm==1.0.15
+onnx==1.17.0
+albumentations==1.4.24
+opencv-python-headless==4.10.0.84
+
+# Development tooling and experimentation.
+pytest==8.3.5
+black==25.1.0
+mlflow==2.20.3
+matplotlib==3.10.1
+seaborn==0.13.2
+jupyter==1.1.1
+PyYAML==6.0.2
+tqdm==4.67.1

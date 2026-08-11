@@ -2,7 +2,6 @@
 Modèle de pricing prédictif avec XGBoost/LightGBM.
 """
 
-import json
 from pathlib import Path
 from typing import Optional
 
@@ -10,10 +9,8 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 import lightgbm as lgb
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
-import mlflow
 
 
 class PricingModel:

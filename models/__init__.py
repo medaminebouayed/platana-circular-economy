@@ -3,6 +3,5 @@ Top-level package for model components (cv, pricing).
 Provides easy import of subpackages.
 """
 
-from . import cv, pricing
-
-__all__ = ["cv", "pricing"]
+# Do not eagerly import subpackages here. In particular, importing ``cv``
+# loads the PyTorch/timm training stack and defeats ONNX-only production use.

@@ -35,9 +35,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://orchestrator:8000",
+    "http://main-service:8003",
+    "http://cv-service:8001",
+]
+env_origins = os.getenv("ALLOWED_ORIGINS")
+allowed_origins = [o.strip() for o in env_origins.split(",") if o.strip()] if env_origins else DEFAULT_ALLOWED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://localhost", "http://orchestrator:8000", "http://main-service:8003"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,7 +60,7 @@ app.add_middleware(
 # ── Model Loading ───────────────────────────────────────────────
 MODEL_PATH = os.getenv(
     "CV_MODEL_PATH",
-    str(Path(__file__).resolve().parents[2] / "models" / "cv" / "checkpoints" / "best_multitask_model.pth")
+    str(Path(__file__).resolve().parents[2] / "models" / "cv" / "checkpoints" / "best_multitask_model.onnx")
 )
 grader = None
 

@@ -1,0 +1,9 @@
+# Production-only CV inference: no PyTorch, torchvision, timm, or ONNX exporter.
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+pydantic==2.11.4
+python-multipart==0.0.20
+python-dotenv==1.1.0
+onnxruntime==1.22.0
+numpy==1.26.4
+Pillow==11.2.1

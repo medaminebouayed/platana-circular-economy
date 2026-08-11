@@ -3,17 +3,14 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Dépendances système
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-
 # Python deps
-COPY requirements.txt .
+COPY api/cv_service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Code
-COPY models/cv /app/models/cv
+COPY models/__init__.py /app/models/__init__.py
+COPY models/cv/__init__.py /app/models/cv/__init__.py
+COPY models/cv/inference.py /app/models/cv/inference.py
 COPY api/cv_service /app/api/cv_service
 COPY api/shared /app/api/shared
 

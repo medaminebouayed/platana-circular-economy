@@ -19,27 +19,27 @@ start "Dify Docker Stack" /min cmd /c "cd /d C:\Users\amine\OneDrive\Desktop\dif
 timeout /t 3 /nobreak >nul
 
 echo [2/6] Launching CV Service         (port 8001)...
-start "CV Service (8001)" cmd /k "title CV Service ^| call venv\Scripts\activate && uvicorn api.cv_service.main:app --host 0.0.0.0 --port 8001 --reload"
+start "CV Service" /D "%CD%" cmd /k venv\Scripts\python.exe -m uvicorn api.cv_service.main:app --host 0.0.0.0 --port 8001 --reload
 
 timeout /t 1 /nobreak >nul
 
 echo [3/6] Launching Pricing Service    (port 8002)...
-start "Pricing Service (8002)" cmd /k "title Pricing Service ^| call venv\Scripts\activate && uvicorn api.pricing_service.main:app --host 0.0.0.0 --port 8002 --reload"
+start "Pricing Service" /D "%CD%" cmd /k venv\Scripts\python.exe -m uvicorn api.pricing_service.main:app --host 0.0.0.0 --port 8002 --reload
 
 timeout /t 1 /nobreak >nul
 
 echo [4/6] Launching Orchestrator       (port 8000)...
-start "Orchestrator (8000)" cmd /k "title Orchestrator ^| call venv\Scripts\activate && uvicorn api.orchestrator.main:app --host 0.0.0.0 --port 8000 --reload"
+start "Orchestrator" /D "%CD%" cmd /k venv\Scripts\python.exe -m uvicorn api.orchestrator.main:app --host 0.0.0.0 --port 8000 --reload
 
 timeout /t 1 /nobreak >nul
 
 echo [5/6] Launching Main Service       (port 8003)...
-start "Main Service (8003)" cmd /k "title Main Service ^| call venv\Scripts\activate && uvicorn api.main_service.main:app --host 0.0.0.0 --port 8003 --reload"
+start "Main Service" /D "%CD%" cmd /k venv\Scripts\python.exe -m uvicorn api.main_service.main:app --host 0.0.0.0 --port 8003 --reload
 
 timeout /t 1 /nobreak >nul
 
 echo [6/6] Launching Angular Frontend   (port 4200)...
-start "Angular Frontend (4200)" cmd /k "title Angular Frontend ^| cd frontend && npm start"
+start "Angular Frontend" /D "%CD%\frontend" cmd /k npm start
 
 echo.
 echo =====================================================

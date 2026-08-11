@@ -11,15 +11,15 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timedelta
+import json
 
 import jwt
 import httpx
 from bson import ObjectId
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from dotenv import load_dotenv
 
 # ── Config ─────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | ma
 logger = logging.getLogger(__name__)
 
 # ── Dify Config ─────────────────────────────────────────────────
-DIFY_API_URL = os.getenv("DIFY_API_URL", "http://127.0.0.1/v1")
+DIFY_API_URL = os.getenv("DIFY_API_URL", "http://host.docker.internal:80/v1")
 DIFY_EVAL_API_KEY = os.getenv("DIFY_EVAL_API_KEY")
 DIFY_PUBLISH_API_KEY = os.getenv("DIFY_PUBLISH_API_KEY")
 DIFY_USER = "platana-backend"
@@ -48,14 +48,6 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://localhost"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
 )
 
 UPLOAD_DIR = Path("data/uploads")
@@ -80,7 +72,7 @@ class RegisterRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
-    expires_in: int  # seconds
+    expires_in: int
     email: str
     role: str
     name: str
@@ -91,22 +83,17 @@ class TokenResponse(BaseModel):
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password_sha256(password: str) -> str:
-    """Legacy SHA-256 hash for seeded accounts."""
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def hash_password(password: str) -> str:
-    """bcrypt hash for new accounts."""
     return pwd_context.hash(password)
 
 def verify_password(plain: str, stored: str) -> bool:
-    """Verify against bcrypt OR legacy SHA-256 hash."""
-    # Try bcrypt first
     try:
         if pwd_context.verify(plain, stored):
             return True
     except Exception:
         pass
-    # Fallback: compare SHA-256 (seeded accounts)
     return hash_password_sha256(plain) == stored
 
 # ── JWT Helpers ──────────────────────────────────────────────────
@@ -168,6 +155,13 @@ async def health():
         "dify_key_configured": bool(DIFY_EVAL_API_KEY),
     }
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    from database.database import client
+    if client:
+        client.close()
+        logger.info("MongoDB connection closed.")
+
 # ══════════════════════════════════════════════════════════════════
 # AUTH
 # ══════════════════════════════════════════════════════════════════
@@ -177,10 +171,7 @@ async def login(req: LoginRequest):
     if not user or not verify_password(req.password, user.get("password", "")):
         raise HTTPException(status_code=401, detail="Identifiants invalides")
     expiry_hours = JWT_EXPIRY_HOURS.get(req.role, 8)
-    token = create_token(
-        {"sub": user["email"], "role": user["role"], "name": user["name"]},
-        req.role
-    )
+    token = create_token({"sub": user["email"], "role": user["role"], "name": user["name"]}, req.role)
     logger.info("User logged in: %s (%s)", req.email, req.role)
     return TokenResponse(
         access_token=token,
@@ -199,7 +190,7 @@ async def register(req: RegisterRequest):
         raise HTTPException(status_code=400, detail="L'utilisateur existe déjà")
     new_user = {
         "email": req.email,
-        "password": hash_password(req.password),  # bcrypt
+        "password": hash_password(req.password),
         "role": "USER",
         "name": req.name,
         "avatar": f"https://api.dicebear.com/7.x/initials/svg?seed={req.name}",
@@ -207,10 +198,7 @@ async def register(req: RegisterRequest):
         "created_at": datetime.utcnow(),
     }
     await users_collection.insert_one(new_user)
-    token = create_token(
-        {"sub": req.email, "role": "USER", "name": req.name},
-        "USER"
-    )
+    token = create_token({"sub": req.email, "role": "USER", "name": req.name}, "USER")
     logger.info("New user registered: %s", req.email)
     return TokenResponse(
         access_token=token,
@@ -225,12 +213,10 @@ async def register(req: RegisterRequest):
 
 @app.get("/api/auth/verify", tags=["auth"])
 async def verify_token(current_user: dict = Depends(get_current_user)):
-    """Verify a JWT token is valid and not expired."""
     return {"valid": True, "user": current_user}
 
 @app.get("/api/auth/me", tags=["auth"])
 async def get_me(current_user: dict = Depends(get_current_user)):
-    """Return the full profile of the currently authenticated user."""
     user = await users_collection.find_one({"email": current_user["sub"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -254,11 +240,9 @@ class UserPreferences(BaseModel):
 
 @app.put("/api/auth/preferences", tags=["auth"])
 async def update_preferences(prefs: UserPreferences, current_user: dict = Depends(get_current_user)):
-    """Save user preferences in MongoDB."""
     user = await users_collection.find_one({"email": current_user["sub"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
     await users_collection.update_one(
         {"email": current_user["sub"]},
         {"$set": {"preferences": prefs.dict()}}
@@ -274,7 +258,6 @@ class UpdatePasswordRequest(BaseModel):
 
 @app.put("/api/auth/profile", tags=["auth"])
 async def update_profile(req: UpdateProfileRequest, current_user: dict = Depends(get_current_user)):
-    """Update the display name of the authenticated user. Returns a new JWT with updated name."""
     user = await users_collection.find_one({"email": current_user["sub"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -300,7 +283,6 @@ async def update_profile(req: UpdateProfileRequest, current_user: dict = Depends
 
 @app.put("/api/auth/password", tags=["auth"])
 async def change_password(req: UpdatePasswordRequest, current_user: dict = Depends(get_current_user)):
-    """Change password after verifying the current password."""
     user = await users_collection.find_one({"email": current_user["sub"]})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -345,6 +327,17 @@ async def get_user_products(email: str):
 # ══════════════════════════════════════════════════════════════════
 # UPLOAD & AI EVALUATION (via Dify)
 # ══════════════════════════════════════════════════════════════════
+def _extract_dify_outputs(raw: dict) -> dict:
+    """Extracts and parses the outputs from Dify response."""
+    logger.debug(f"[DIFY RAW RESPONSE] {raw}")
+    if "body_reject" in raw and isinstance(raw["body_reject"], str):
+        return json.loads(raw["body_reject"])
+    elif "body" in raw and isinstance(raw["body"], str):
+        return json.loads(raw["body"])
+    elif "data" in raw and "outputs" in raw.get("data", {}):
+        return raw["data"]["outputs"]
+    return raw
+
 @app.post("/api/products/upload", tags=["products"])
 async def upload_and_evaluate(
     brand: str = Form(...),
@@ -354,10 +347,7 @@ async def upload_and_evaluate(
     user_email: str = Form("anonymous@platana.fr"),
     files: List[UploadFile] = File(...)
 ):
-    """Upload product images and trigger Dify AI evaluation workflow."""
     saved_image_paths = []
-
-    # Save images locally
     for f in files:
         ext = Path(f.filename).suffix if f.filename else ".jpg"
         path = UPLOAD_DIR / f"{uuid.uuid4().hex}{ext}"
@@ -365,7 +355,6 @@ async def upload_and_evaluate(
             shutil.copyfileobj(f.file, buf)
         saved_image_paths.append(str(path))
 
-    # Insert product record immediately so it always ends up in DB
     doc = {
         "brand": brand, "model": model, "year": year,
         "original_price": original_price,
@@ -378,7 +367,6 @@ async def upload_and_evaluate(
     product_id = str(result.inserted_id)
     logger.info("Product inserted: id=%s, user=%s", product_id, user_email)
 
-    # Call Dify evaluation workflow
     from dify.dify_client import upload_file_to_dify, run_eval_workflow
     try:
         dify_file_ids = []
@@ -387,14 +375,13 @@ async def upload_and_evaluate(
             dify_file_ids.append(file_id)
 
         ai_outputs_raw = await run_eval_workflow(brand, model, year, original_price, dify_file_ids)
-
-        import json
-        if "body_reject" in ai_outputs_raw and isinstance(ai_outputs_raw["body_reject"], str):
-            ai_outputs = json.loads(ai_outputs_raw["body_reject"])
-        elif "body" in ai_outputs_raw and isinstance(ai_outputs_raw["body"], str):
-            ai_outputs = json.loads(ai_outputs_raw["body"])
-        else:
-            ai_outputs = ai_outputs_raw
+        ai_outputs = _extract_dify_outputs(ai_outputs_raw)
+        
+        logger.info(f"[DIFY PARSED OUTPUTS] {ai_outputs}")
+        
+        if not ai_outputs or "grade" not in ai_outputs:
+            logger.error(f"Dify returned empty or invalid outputs: {ai_outputs_raw}")
+            raise HTTPException(status_code=502, detail="Dify evaluation failed: No valid AI predictions returned. Check Dify workflow logs.")
 
         ai_predictions = AIPredictions(**ai_outputs)
         logger.info("Dify evaluation complete for product %s: grade=%s", product_id, ai_predictions.grade)
@@ -407,7 +394,17 @@ async def upload_and_evaluate(
         )
         raise HTTPException(
             status_code=502,
-            detail=f"Dify AI workflow failed. The product has been saved (id: {product_id}) but evaluation could not complete. Error: {e.response.text}"
+            detail=f"Dify AI workflow failed. Product saved (id: {product_id}) but eval failed. Error: {e.response.text}"
+        )
+    except (ValidationError, json.JSONDecodeError) as e:
+        logger.error("Pydantic/JSON Error for product %s: %s", product_id, e)
+        await products_collection.update_one(
+            {"_id": result.inserted_id},
+            {"$set": {"status": "AI_ERROR", "error_detail": str(e)}},
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Dify AI workflow failed. Product saved (id: {product_id}) but eval failed. Error: {str(e)}"
         )
     except Exception as e:
         logger.error("Dify evaluation failed for product %s: %s", product_id, e)
@@ -417,10 +414,9 @@ async def upload_and_evaluate(
         )
         raise HTTPException(
             status_code=502,
-            detail=f"Dify AI workflow failed. The product has been saved (id: {product_id}) but evaluation could not complete. Error: {e}"
+            detail=f"Dify AI workflow failed. Product saved (id: {product_id}) but eval failed. Error: {str(e)}"
         )
 
-    # Persist AI predictions
     await products_collection.update_one(
         {"_id": result.inserted_id},
         {"$set": {"status": "REVIEW_READY", "ai_predictions": ai_predictions.dict()}},
@@ -437,7 +433,6 @@ async def upload_and_evaluate(
 # ══════════════════════════════════════════════════════════════════
 @app.patch("/api/products/{product_id}/review", tags=["admin"])
 async def review_product(product_id: str, review: AdminReview):
-    """Admin corrects/validates AI predictions before publication."""
     try:
         oid = ObjectId(product_id)
     except Exception:
@@ -475,7 +470,6 @@ class RejectRequest(BaseModel):
 
 @app.post("/api/products/{product_id}/reject", tags=["admin"])
 async def reject_product(product_id: str, req: Optional[RejectRequest] = None):
-    """Admin rejects a product anytime."""
     try:
         oid = ObjectId(product_id)
     except Exception:
@@ -502,7 +496,6 @@ async def reject_product(product_id: str, req: Optional[RejectRequest] = None):
 
 @app.post("/api/products/{product_id}/re-evaluate", tags=["admin"])
 async def re_evaluate_product(product_id: str):
-    """Re-trigger Dify evaluation workflow for a product anytime."""
     try:
         oid = ObjectId(product_id)
     except Exception:
@@ -526,13 +519,11 @@ async def re_evaluate_product(product_id: str):
             dify_file_ids.append(file_id)
 
         ai_outputs_raw = await run_eval_workflow(brand, model, year, original_price, dify_file_ids)
-        import json
-        if "body_reject" in ai_outputs_raw and isinstance(ai_outputs_raw["body_reject"], str):
-            ai_outputs = json.loads(ai_outputs_raw["body_reject"])
-        elif "body" in ai_outputs_raw and isinstance(ai_outputs_raw["body"], str):
-            ai_outputs = json.loads(ai_outputs_raw["body"])
-        else:
-            ai_outputs = ai_outputs_raw
+        ai_outputs = _extract_dify_outputs(ai_outputs_raw)
+        
+        if not ai_outputs or "grade" not in ai_outputs:
+            logger.error(f"Re-evaluation failed. Dify returned empty or invalid outputs: {ai_outputs_raw}")
+            raise HTTPException(status_code=502, detail="Ré-évaluation échouée: Dify n'a pas renvoyé de prédictions valides.")
 
         ai_predictions = AIPredictions(**ai_outputs)
 
@@ -548,14 +539,13 @@ async def re_evaluate_product(product_id: str):
         return {"status": "REVIEW_READY", "ai_predictions": ai_predictions.dict(), "message": "Ré-évaluation effectuée avec succès."}
     except Exception as e:
         logger.error("Re-evaluation failed for %s: %s", product_id, e)
-        raise HTTPException(status_code=502, detail=f"Échec de la ré-évaluation: {e}")
+        raise HTTPException(status_code=502, detail=f"Échec de la ré-évaluation: {str(e)}")
 
 # ══════════════════════════════════════════════════════════════════
 # PUBLICATION VIA DIFY
 # ══════════════════════════════════════════════════════════════════
 @app.post("/api/products/{product_id}/publish", tags=["admin"])
 async def publish_product(product_id: str):
-    """Trigger Dify publish workflow to list product on marketplace."""
     try:
         oid = ObjectId(product_id)
     except Exception:
@@ -577,18 +567,19 @@ async def publish_product(product_id: str):
             price=admin_data.get("market_price", 0.0),
             grade=admin_data["grade"]
         )
-        import json
-        if "body" in outputs_raw and isinstance(outputs_raw["body"], str):
-            outputs = json.loads(outputs_raw["body"])
-        else:
-            outputs = outputs_raw
-            
+        outputs = _extract_dify_outputs(outputs_raw)
+        
+        logger.info(f"[DIFY PUBLISH OUTPUTS] {outputs}")
+        
         shopify_url = outputs.get("listing_url")
+        if not shopify_url:
+            logger.error(f"Dify publish workflow did not return a listing_url. Outputs: {outputs}")
+            raise HTTPException(status_code=502, detail="Publish workflow succeeded but no listing_url was returned.")
 
     except Exception as e:
         logger.error("Dify publish workflow failed for product %s: %s", product_id, e)
         await products_collection.update_one({"_id": oid}, {"$set": {"status": "PUBLISH_ERROR"}})
-        raise HTTPException(status_code=502, detail=f"Publish workflow failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Publish workflow failed: {str(e)}")
 
     await products_collection.update_one(
         {"_id": oid},
@@ -629,7 +620,6 @@ DEFAULT_WORKSHOPS = [
 
 @app.on_event("startup")
 async def seed_workshops():
-    """Seed default workshops into MongoDB if none exist yet."""
     count = await workshops_collection.count_documents({})
     if count == 0:
         logger.info("Seeding %d default workshops into MongoDB...", len(DEFAULT_WORKSHOPS))
@@ -638,7 +628,6 @@ async def seed_workshops():
 
 @app.get("/api/stats/dashboard", tags=["stats"])
 async def get_dashboard_stats():
-    """Return dynamic metrics for the dashboard."""
     total_pending = await products_collection.count_documents({"status": {"$in": ["PENDING_EVALUATION", "AI_EVALUATED", "REVIEW_READY", "PENDING_ADMIN_REVIEW"]}})
     published = await products_collection.count_documents({"status": "PUBLISHED"})
     rejected = await products_collection.count_documents({"status": "REJECTED"})
@@ -673,7 +662,6 @@ async def get_dashboard_stats():
 # ── Workshop CRUD ─────────────────────────────────────────────────
 @app.get("/api/logistics/workshops", tags=["logistics"])
 async def get_workshops():
-    """Return all workshops from MongoDB."""
     cursor = workshops_collection.find({})
     workshops = await cursor.to_list(length=200)
     result = []
@@ -684,13 +672,11 @@ async def get_workshops():
 
 @app.post("/api/logistics/workshops", tags=["logistics"], status_code=201)
 async def create_workshop(workshop: dict):
-    """Create a new workshop (admin only)."""
     res = await workshops_collection.insert_one(workshop)
     return {"id": str(res.inserted_id), **workshop}
 
 @app.put("/api/logistics/workshops/{workshop_id}", tags=["logistics"])
 async def update_workshop(workshop_id: str, workshop: dict):
-    """Update workshop constraints (admin only)."""
     oid = ObjectId(workshop_id)
     workshop.pop("_id", None)
     workshop.pop("id", None)
@@ -701,7 +687,6 @@ async def update_workshop(workshop_id: str, workshop: dict):
 
 @app.delete("/api/logistics/workshops/{workshop_id}", tags=["logistics"])
 async def delete_workshop(workshop_id: str):
-    """Delete a workshop (admin only)."""
     oid = ObjectId(workshop_id)
     result = await workshops_collection.delete_one({"_id": oid})
     if result.deleted_count == 0:
@@ -711,7 +696,6 @@ async def delete_workshop(workshop_id: str):
 # ── Logistics Optimization ────────────────────────────────────────
 @app.post("/api/logistics/optimize", tags=["logistics"])
 async def optimize_logistics():
-    """Trigger OR-Tools optimization on products using DB workshops as constraints."""
     cursor = products_collection.find({
         "status": {"$ne": "REJECTED"},
         "$or": [
@@ -798,7 +782,6 @@ async def optimize_logistics():
         }
     except Exception as e:
         logger.error("Optimization failed: %s", e)
-        # Fallback enrichment if orchestrator isn't available
         enriched = []
         for p in all_prods:
             ai = p.get("ai_predictions") or {}

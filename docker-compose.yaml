@@ -1,7 +1,39 @@
 version: '3.8'
 
 services:
+  # ── SECURE DOCKER SOCKET PROXY ──────────────────────────────
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: platana-docker-proxy
+    restart: always
+    environment:
+      - CONTAINERS=1
+      - SERVICES=1
+      - NETWORKS=1
+      - VERSION=1
+      - EVENTS=1
+      - INFO=1
+      - POST=0
+      - PING=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  # ── TRAEFIK ─────────────────────────────────────────────────
+  traefik:
+    image: traefik:latest
+    container_name: platana-traefik
+    restart: always
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.endpoint=tcp://docker-proxy:2375" 
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "8081:80"
+      - "8082:8080"
+    depends_on:
+      - docker-proxy
   # ── MongoDB ──────────────────────────────────────────────────
   mongodb:
     image: mongo:7.0
@@ -13,6 +45,9 @@ services:
       - mongo-data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=platana_circular_economy
+    networks:
+      - default
+      - platana-shared-network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 30s
@@ -26,16 +61,18 @@ services:
       dockerfile: Dockerfile.cv
     container_name: platana-cv
     restart: unless-stopped
-    ports:
-      - "8001:8001"
+    # PAS DE PORTS ICI : Il est caché à l'extérieur, seul l'orchestrateur lui parle
     volumes:
       - ./models/cv/checkpoints:/app/models/cv/checkpoints:ro
     env_file:
       - .env
     environment:
-      - CV_MODEL_PATH=/app/models/cv/checkpoints/best_multitask_model.pth
+      - CV_MODEL_PATH=/app/models/cv/checkpoints/best_multitask_model.onnx
+    networks:
+      - default
+      - platana-shared-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -47,14 +84,16 @@ services:
       dockerfile: Dockerfile.pricing
     container_name: platana-pricing
     restart: unless-stopped
-    ports:
-      - "8002:8002"
+    # PAS DE PORTS ICI
     volumes:
       - ./models/pricing/checkpoints:/app/models/pricing/checkpoints:ro
     env_file:
       - .env
+    networks:
+      - default
+      - platana-shared-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -66,8 +105,7 @@ services:
       dockerfile: Dockerfile.orchestrator
     container_name: platana-orchestrator
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    # PAS DE PORTS ICI
     env_file:
       - .env
     environment:
@@ -81,21 +119,23 @@ services:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+    networks:
+      - default
+      - platana-shared-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # ── Main Service ─────────────────────────────────────────────
+  # ── Main Service (L'API publique pour le frontend) ───────────
   main-service:
     build:
       context: .
       dockerfile: Dockerfile.main
     container_name: platana-main
     restart: unless-stopped
-    ports:
-      - "8003:8003"
+    # PAS DE PORTS ICI : Traefik va s'occuper de l'exposer
     volumes:
       - uploads-data:/app/data/uploads
     env_file:
@@ -103,32 +143,54 @@ services:
     environment:
       - MONGO_URL=mongodb://mongodb:27017
       - ORCHESTRATOR_URL=http://orchestrator:8000
+    extra_hosts :
+     - "host.docker.internal:host-gateway"
     depends_on:
       orchestrator:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+    networks:
+      - default
+      - platana-shared-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
+    labels:
+      # ---- TRAEFIK LABELS ----
+      - "traefik.enable=true"
+      - "traefik.http.routers.main.rule=Host(`localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.main.entrypoints=web"
+      - "traefik.http.services.main.loadbalancer.server.port=8003"
 
-  # ── Frontend ─────────────────────────────────────────────────
+  # ── Frontend Angular ─────────────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: platana-frontend
     restart: unless-stopped
-    ports:
-      - "8080:80"
+    # PAS DE PORTS ICI : Traefik s'occupe de l'exposer
     depends_on:
       main-service:
         condition: service_healthy
+    labels:
+      # ---- TRAEFIK LABELS ----
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
 
 volumes:
   mongo-data:
     driver: local
   uploads-data:
     driver: local
+
+networks:
+  default:
+    driver: bridge
+  platana-shared-network:
+    external: true

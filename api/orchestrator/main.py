@@ -26,6 +26,12 @@ from shared.schemas import OptimizeLogisticsRequest, OptimizeLogisticsResponse
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | orchestrator | %(message)s")
 logger = logging.getLogger(__name__)
 
+# ── MongoDB Client (module-level for connection reuse) ──────────────
+from motor.motor_asyncio import AsyncIOMotorClient
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+mongo_client = AsyncIOMotorClient(MONGO_URL)
+mongo_db = mongo_client.platana_circular_economy
+
 # ── Service URLs ─────────────────────────────────────────────────
 CV_URL = os.getenv("CV_SERVICE_URL", "http://localhost:8001")
 PRICING_URL = os.getenv("PRICING_SERVICE_URL", "http://localhost:8002")
@@ -41,9 +47,29 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close MongoDB client connection on shutdown."""
+    if mongo_client:
+        mongo_client.close()
+        logger.info("MongoDB connection closed.")
+
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://orchestrator:8000",
+    "http://main-service:8003",
+]
+env_origins = os.getenv("ALLOWED_ORIGINS")
+allowed_origins = [o.strip() for o in env_origins.split(",") if o.strip()] if env_origins else DEFAULT_ALLOWED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://localhost"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

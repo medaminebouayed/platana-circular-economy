@@ -1,0 +1,32 @@
+# Docker build exclusions
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+
+# Frontend build artifacts
+/.angular/
+/dist/
+
+# Git/IDE
+.git/
+.vscode/
+.idea/
+
+# Large temp/data
+temp_uploads/
+data/uploads/
+models/**/*.pt
+models/**/*.pth
+models/**/*.onnx
+models/**/checkpoints/
+
+# OS junk
+.DS_Store
+Thumbs.db
