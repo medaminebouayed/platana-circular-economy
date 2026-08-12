@@ -22,6 +22,7 @@ env_path = Path(__file__).resolve().parents[2] / '.env'
 load_dotenv(dotenv_path=env_path)
 
 from shared.schemas import GradingResponse
+from models.artifacts import resolve_latest_artifact
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | cv_service | %(message)s")
 logger = logging.getLogger(__name__)
@@ -58,29 +59,38 @@ app.add_middleware(
 )
 
 # ── Model Loading ───────────────────────────────────────────────
-MODEL_PATH = os.getenv(
-    "CV_MODEL_PATH",
-    str(Path(__file__).resolve().parents[2] / "models" / "cv" / "checkpoints" / "best_multitask_model.onnx")
-)
+CHECKPOINT_DIR = Path(__file__).resolve().parents[2] / "models" / "cv" / "checkpoints"
+LEGACY_MODEL_PATH = CHECKPOINT_DIR / "best_multitask_model.onnx"
+CONFIGURED_MODEL_PATH = os.getenv("CV_MODEL_PATH")
 grader = None
+active_model_version = "simulation"
+
+
+def _resolve_model_path() -> tuple[Path, str]:
+    if CONFIGURED_MODEL_PATH:
+        return Path(CONFIGURED_MODEL_PATH), "external-override"
+    model_path, version_id = resolve_latest_artifact(CHECKPOINT_DIR, "model.onnx")
+    return (model_path, version_id) if model_path else (LEGACY_MODEL_PATH, "legacy")
 
 @app.on_event("startup")
 async def startup():
-    global grader
-    if Path(MODEL_PATH).exists():
+    global grader, active_model_version
+    model_path, active_model_version = _resolve_model_path()
+    if model_path.exists():
         try:
             from models.cv.inference import MultiViewGrader
-            grader = MultiViewGrader(MODEL_PATH)
-            logger.info("CV Model loaded from: %s", MODEL_PATH)
+            grader = MultiViewGrader(str(model_path))
+            logger.info("CV model loaded from version %s: %s", active_model_version, model_path)
         except Exception as e:
             logger.warning("Failed to load CV model: %s. Running in simulation mode.", e)
     else:
-        logger.warning("CV Model not found at %s. Running in simulation mode.", MODEL_PATH)
+        logger.warning("CV model not found at %s. Running in simulation mode.", model_path)
 
 # ── Health Check ─────────────────────────────────────────────────
 @app.get("/health", tags=["health"])
 async def health():
-    return {"status": "ok", "service": "cv_service", "model_loaded": grader is not None}
+    return {"status": "ok", "service": "cv_service", "model_loaded": grader is not None,
+            "model_version": active_model_version}
 
 # ── Endpoints ───────────────────────────────────────────────────
 @app.post("/grade", response_model=GradingResponse, tags=["grading"])

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from pathlib import Path
+import sys
 from torch.utils.data import DataLoader
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
                              f1_score, roc_auc_score, confusion_matrix, classification_report)
@@ -8,18 +9,37 @@ import numpy as np
 from tqdm import tqdm
 from torchvision import transforms
 
-from backbone import create_backbone
-from pretrain_backbone import CategoryFiLM, collate_with_category
-from mvtec_dataset import MVTecMultiCategoryDataset, MVTecDataset
+root_dir = Path(__file__).resolve().parents[2]
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
+from models.artifacts import resolve_latest_artifact
+from models.cv.backbone import create_backbone
+from models.cv.pretrain_backbone import CategoryFiLM, collate_with_category
+from models.cv.mvtec_dataset import MVTecMultiCategoryDataset, MVTecDataset
 
-def evaluate_mvtec_backbone():
+def _resolve_backbone_path(model_path: str | None, version_id: str | None) -> Path:
+    if model_path and version_id:
+        raise ValueError("Use either --model-path or --version-id, not both.")
+    checkpoint_dir = Path(__file__).resolve().parent / "checkpoints"
+    if model_path:
+        return Path(model_path)
+    if version_id:
+        from models.artifacts import resolve_version_artifact
+        return resolve_version_artifact(checkpoint_dir, version_id, "backbone.pt")
+    active_model, _ = resolve_latest_artifact(
+        checkpoint_dir, "backbone.pt", pointer_name="latest_backbone.json"
+    )
+    return active_model or (checkpoint_dir / "backbone_mvtec.pt")
+
+
+def evaluate_mvtec_backbone(model_path: str | None = None, version_id: str | None = None,
+                            data_root: str | None = None):
     """Runs a full evaluation report on the MVTec AD test dataset using the pre-trained backbone."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_dir = Path(__file__).resolve().parent
-    root_dir = current_dir.parent.parent
     
-    data_root = root_dir / "data" / "external" / "mvtec_ad"
-    model_path = current_dir / "checkpoints" / "backbone_mvtec.pt"
+    data_root = Path(data_root) if data_root else root_dir / "data" / "external" / "mvtec_ad"
+    model_path = _resolve_backbone_path(model_path, version_id)
     
     if not model_path.exists():
         print(f"Error: Backbone weights not found at {model_path}.")
@@ -139,4 +159,11 @@ def evaluate_mvtec_backbone():
     print("="*50)
 
 if __name__ == "__main__":
-    evaluate_mvtec_backbone()
+    import argparse
+    parser = argparse.ArgumentParser(description="Evaluate a versioned MVTec backbone.")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--version-id", help="Immutable backbone version under checkpoints/versions")
+    group.add_argument("--model-path", help="Explicit backbone checkpoint path")
+    parser.add_argument("--data-root", help="MVTec AD root; defaults to data/external/mvtec_ad")
+    args = parser.parse_args()
+    evaluate_mvtec_backbone(args.model_path, args.version_id, args.data_root)

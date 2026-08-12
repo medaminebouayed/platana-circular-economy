@@ -3,6 +3,7 @@ import joblib
 from pathlib import Path
 from datetime import datetime
 import sys
+import argparse
 # Ensure repository root is on PYTHONPATH for absolute imports
 repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
@@ -12,17 +13,38 @@ if str(repo_root) not in sys.path:
 from models.cv.inference import MultiViewGrader
 from models.pricing.model import PricingModel
 from models.pricing.features import FeatureEngineer
+from models.artifacts import resolve_latest_artifact, resolve_version_artifact
 from models.genai.sheet_generator import ProductSheetGenerator
 
+def _resolve_model_artifact(checkpoint_dir, artifact_name, version_id=None, model_path=None,
+                            pointer_name="latest.json"):
+    if version_id and model_path:
+        raise ValueError(f"Choose either a version ID or an explicit path for {artifact_name}, not both.")
+    if model_path:
+        return Path(model_path), "external-override"
+    if version_id:
+        return resolve_version_artifact(checkpoint_dir, version_id, artifact_name), version_id
+    active_path, active_version = resolve_latest_artifact(checkpoint_dir, artifact_name, pointer_name)
+    return active_path or (checkpoint_dir / artifact_name), active_version or "legacy"
+
+
 class RefurbDecisionEngine:
-    def __init__(self):
+    def __init__(self, pricing_version_id=None, pricing_model_path=None, pricing_engineer_path=None):
         # Le dossier models/ actuel
         models_dir = Path(__file__).resolve().parent
         
         # Charger le modèle XGBoost et le Feature Engineer
         pricing_dir = models_dir / "pricing" / "checkpoints"
-        self.pricing_model = PricingModel.load(str(pricing_dir / "model.pkl"))
-        feature_engineer_path = pricing_dir / "feature_engineer.pkl"
+        model_path, version_id = _resolve_model_artifact(
+            pricing_dir, "model.pkl", pricing_version_id, pricing_model_path
+        )
+        feature_engineer_path, engineer_version = _resolve_model_artifact(
+            pricing_dir, "feature_engineer.pkl", pricing_version_id, pricing_engineer_path
+        )
+        if version_id != engineer_version:
+            raise RuntimeError("Pricing model and feature engineer must come from the same promoted version.")
+        self.pricing_version_id = version_id
+        self.pricing_model = PricingModel.load(str(model_path))
         if feature_engineer_path.is_file():
             self.feature_engineer = joblib.load(feature_engineer_path)
         else:
@@ -119,16 +141,33 @@ class RefurbDecisionEngine:
         }
 
 def main():
+    parser = argparse.ArgumentParser(description="Run the local CV + pricing decision pipeline.")
+    cv_group = parser.add_mutually_exclusive_group()
+    cv_group.add_argument("--cv-version-id", help="Immutable ONNX CV version")
+    cv_group.add_argument("--cv-model-path", help="Explicit ONNX CV model path")
+    pricing_group = parser.add_mutually_exclusive_group()
+    pricing_group.add_argument("--pricing-version-id", help="Immutable pricing version")
+    pricing_group.add_argument("--pricing-model-path", help="Explicit pricing model (.pkl) path")
+    parser.add_argument("--pricing-engineer-path", help="Feature-engineer .pkl required with --pricing-model-path")
+    args = parser.parse_args()
+    if bool(args.pricing_model_path) != bool(args.pricing_engineer_path):
+        parser.error("--pricing-model-path and --pricing-engineer-path must be supplied together.")
     # models_dir est le dossier où se trouve pipeline.py
     models_dir = Path(__file__).resolve().parent
     # repo_root est le dossier parent (la racine du projet)
     repo_root = models_dir.parent
     
-    model_path = models_dir / "cv" / "checkpoints" / "best_multitask_model.onnx"
+    cv_checkpoint_dir = models_dir / "cv" / "checkpoints"
+    model_path, cv_version = _resolve_model_artifact(
+        cv_checkpoint_dir, "model.onnx", args.cv_version_id, args.cv_model_path
+    )
     
     print("Initialisation du modèle de Vision...")
     grader = MultiViewGrader(str(model_path))
-    engine = RefurbDecisionEngine()
+    engine = RefurbDecisionEngine(
+        args.pricing_version_id, args.pricing_model_path, args.pricing_engineer_path
+    )
+    print(f"CV version: {cv_version}; pricing version: {engine.pricing_version_id}")
     
     # Les données sont à la racine du projet
     val_dir = repo_root / "data" / "processed" / "smartphone_grading" / "val"

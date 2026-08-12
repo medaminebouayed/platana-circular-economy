@@ -1,6 +1,8 @@
 import torch
 from pathlib import Path
 import sys
+import argparse
+import json
 
 # Ensure models package is discoverable
 root_dir = Path(__file__).resolve().parent.parent
@@ -8,19 +10,27 @@ sys.path.append(str(root_dir))
 
 from models.cv.model import MultiTaskDefectModel
 from models.cv.dataset import DEFECT_CLASSES
+from models.artifacts import promote_version, resolve_latest_artifact, write_manifest
 
-def export_to_onnx():
+def export_to_onnx(version_id=None):
     device = torch.device("cpu")
-    model_path = root_dir / "models" / "cv" / "checkpoints" / "best_multitask_model.pth"
-    onnx_path = root_dir / "models" / "cv" / "checkpoints" / "best_multitask_model.onnx"
+    checkpoint_dir = root_dir / "models" / "cv" / "checkpoints"
+    if version_id:
+        version_dir = checkpoint_dir / "versions" / version_id
+        model_path = version_dir / "model.pth"
+    else:
+        model_path, version_id = resolve_latest_artifact(
+            checkpoint_dir, "model.pth", pointer_name="latest_training.json"
+        )
+        if model_path is None:
+            model_path = checkpoint_dir / "best_multitask_model.pth"
+            version_id = "legacy"
+        version_dir = model_path.parent
+    onnx_path = version_dir / "model.onnx"
     
     if not model_path.exists():
         print(f"Error: Could not find model at {model_path}")
-        # Try best_grading_model.pth
-        model_path = root_dir / "best_grading_model.pth"
-        if not model_path.exists():
-             print(f"Error: Could not find model at {model_path} either.")
-             return
+        raise FileNotFoundError(f"Could not find model at {model_path}")
              
     print(f"Loading PyTorch model from {model_path}...")
     
@@ -52,7 +62,16 @@ def export_to_onnx():
         dynamic_axes={'input': {0: 'batch_size'}, 'grade_logits': {0: 'batch_size'}, 'defect_logits': {0: 'batch_size'}}
     )
     
-    print("Export successful!")
+    if version_id != "legacy":
+        manifest_path = version_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        manifest["artifacts"] = {**manifest.get("artifacts", {}), "model": "model.pth", "onnx": "model.onnx"}
+        write_manifest(version_dir, manifest)
+        promote_version(checkpoint_dir, version_id, {"model": "model.pth", "onnx": "model.onnx"})
+    print(f"[OK] ONNX export complete; active CV version: {version_id}")
 
 if __name__ == "__main__":
-    export_to_onnx()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version-id", help="Training version to export; defaults to latest training version")
+    args = parser.parse_args()
+    export_to_onnx(args.version_id)

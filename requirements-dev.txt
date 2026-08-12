@@ -15,9 +15,12 @@ opencv-python-headless==4.10.0.84
 # Development tooling and experimentation.
 pytest==8.3.5
 black==25.1.0
-mlflow==2.20.3
+mlflow==3.14.0
 matplotlib==3.10.1
 seaborn==0.13.2
 jupyter==1.1.1
 PyYAML==6.0.2
 tqdm==4.67.1
+
+# Modele de Pricing (Target Encoding)
+category_encoders==2.10.0

@@ -15,10 +15,13 @@ class PricingRequest(BaseModel):
     model: str
     original_price: float = 800.0
     age_days: int = 365
+    repair_cost: float = 0.0
+    defects: List[str] = []  # <-- AJOUTÉ : Pour le Target Encoding
 
 class PricingResponse(BaseModel):
     predicted_price: float
     confidence_interval: tuple[float, float]
+    price_ratio: float = 0.0 
 
 # === ORCHESTRATOR ===
 class ProductProcessRequest(BaseModel):
@@ -26,7 +29,7 @@ class ProductProcessRequest(BaseModel):
     model: str
     year: int
     original_price: float = 800.0
-    images: List[str] # Liste des chemins d'images locales pour le test
+    images: List[str]
 
 class ProductProcessResponse(BaseModel):
     grade: str
@@ -70,4 +73,4 @@ class OptimizeLogisticsRequest(BaseModel):
 class OptimizeLogisticsResponse(BaseModel):
     allocations: List[Dict]
     total_expected_profit: float
-    status: str
+    status: str

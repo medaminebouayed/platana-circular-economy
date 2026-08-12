@@ -11,7 +11,6 @@ from typing import List
 
 import httpx
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Request
-from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # ── Config ─────────────────────────────────────────────────────
@@ -49,31 +48,9 @@ app = FastAPI(
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Close MongoDB client connection on shutdown."""
     if mongo_client:
         mongo_client.close()
         logger.info("MongoDB connection closed.")
-
-DEFAULT_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:4200",
-    "http://127.0.0.1:4200",
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://orchestrator:8000",
-    "http://main-service:8003",
-]
-env_origins = os.getenv("ALLOWED_ORIGINS")
-allowed_origins = [o.strip() for o in env_origins.split(",") if o.strip()] if env_origins else DEFAULT_ALLOWED_ORIGINS
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ── Decision Engine ──────────────────────────────────────────────
 class DecisionEngine:
@@ -101,7 +78,6 @@ class DecisionEngine:
 # ── Health Check ─────────────────────────────────────────────────
 @app.get("/health", tags=["health"])
 async def health():
-    """Check orchestrator health and downstream service connectivity."""
     checks = {}
     async with httpx.AsyncClient() as client:
         for name, url in [("cv_service", CV_URL), ("pricing_service", PRICING_URL)]:
@@ -143,6 +119,9 @@ async def process_product(
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"CV Service unreachable: {e}")
 
+    # Step 1.5: Calculate Refurb Cost BEFORE Pricing (car le modèle pricing en a besoin)
+    refurb_cost = DecisionEngine.estimate_refurb_cost(defects)
+
     # Step 2: Price Prediction
     async with httpx.AsyncClient() as client:
         try:
@@ -153,6 +132,8 @@ async def process_product(
                 "original_price": original_price,
                 "category": "smartphone",
                 "age_days": max(0, (2025 - year) * 365),
+                "defects": defects,           # <-- AJOUTÉ : On passe les défauts
+                "repair_cost": refurb_cost,   # <-- AJOUTÉ : On passe le coût calculé
             }
             price_res = await client.post(f"{PRICING_URL}/predict", json=pricing_payload, timeout=10.0)
             price_res.raise_for_status()
@@ -164,7 +145,6 @@ async def process_product(
             raise HTTPException(status_code=503, detail=f"Pricing Service unreachable: {e}")
 
     # Step 3: Decision
-    refurb_cost = DecisionEngine.estimate_refurb_cost(defects)
     profit = round(market_price - refurb_cost, 2)
     decision = DecisionEngine.decide(profit)
 
@@ -249,36 +229,22 @@ async def publish_to_marketplace(request: Request):
 # ── OR-Tools Logistics Optimisation ──────────────────────────────
 @app.post("/optimize-logistics", response_model=OptimizeLogisticsResponse, tags=["logistics"])
 async def optimize_logistics(request: OptimizeLogisticsRequest):
-    """Optimize product routing across workshops using OR-Tools.
-    
-    Workshops and their constraints are fetched live from MongoDB.
-    """
     try:
         from ortools.linear_solver import pywraplp
     except ImportError:
-        raise HTTPException(status_code=500, detail="OR-Tools not installed. Run: pip install ortools")
+        raise HTTPException(status_code=500, detail="OR-Tools not installed.")
 
-    # ── Fetch workshops from MongoDB ──────────────────────────────
-    from motor.motor_asyncio import AsyncIOMotorClient
-    import os
-    MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-    _client = AsyncIOMotorClient(MONGO_URL)
-    _db = _client.platana_circular_economy
-    
-    workshops_cursor = _db.workshops.find({"status": {"$ne": "full"}})
+    workshops_cursor = mongo_db.workshops.find({"status": {"$ne": "full"}})
     workshops = await workshops_cursor.to_list(length=100)
     
     if not workshops:
-        logger.warning("No workshops found in DB. Cannot optimize logistics.")
         return OptimizeLogisticsResponse(allocations=[], total_expected_profit=0.0, status="NO_WORKSHOPS")
 
-    # Build workshop lookup: name -> {capacity_remaining, avg_cost, min_profit, max_batch}
     workshop_map = {}
     for w in workshops:
         name = w["name"]
         capacity = w.get("capacity", 50)
         occupancy_pct = w.get("occupancy", 0)
-        # Remaining slots = capacity * (1 - occupancy%)
         remaining = max(0, int(capacity * (1 - occupancy_pct / 100)))
         workshop_map[name] = {
             "capacity": remaining,
@@ -287,10 +253,6 @@ async def optimize_logistics(request: OptimizeLogisticsRequest):
             "max_batch": w.get("max_items_per_batch", 10),
         }
 
-    logger.info("Loaded %d workshops for optimization: %s", len(workshop_map), list(workshop_map.keys()))
-
-    # ── Filter products per workshop constraints ──────────────────
-    # Each product must meet the min_profit_threshold of the workshop it can go to
     solver = pywraplp.Solver.CreateSolver("SCIP")
     if not solver:
         raise HTTPException(status_code=500, detail="OR-Tools solver could not be created.")
@@ -298,28 +260,23 @@ async def optimize_logistics(request: OptimizeLogisticsRequest):
     x = {}
     for i, prod in enumerate(request.products):
         for j, wdata in workshop_map.items():
-            # Only allow assignment if profit meets the workshop threshold
             if prod.profit >= wdata["min_profit"]:
                 x[i, j] = solver.IntVar(0, 1, f"x_{i}_{j}")
 
     if not x:
-        logger.warning("No feasible product-workshop assignments found given current constraints.")
         return OptimizeLogisticsResponse(allocations=[], total_expected_profit=0.0, status="NO_FEASIBLE_ASSIGNMENTS")
 
-    # Each product goes to at most one workshop
     for i in range(len(request.products)):
         vars_for_prod = [x[i, j] for j in workshop_map if (i, j) in x]
         if vars_for_prod:
             solver.Add(solver.Sum(vars_for_prod) <= 1)
 
-    # Capacity constraints per workshop
     for j, wdata in workshop_map.items():
         vars_for_workshop = [x[i, j] for i in range(len(request.products)) if (i, j) in x]
         if vars_for_workshop:
             effective_cap = min(wdata["capacity"], wdata["max_batch"])
             solver.Add(solver.Sum(vars_for_workshop) <= effective_cap)
 
-    # Objective: maximize total (profit - avg_cost)
     objective = solver.Objective()
     for i, prod in enumerate(request.products):
         for j, wdata in workshop_map.items():
@@ -341,7 +298,6 @@ async def optimize_logistics(request: OptimizeLogisticsRequest):
     else:
         status_str = "NO_SOLUTION"
 
-    logger.info("Logistics optimized: %d allocations, total profit=%.2f", len(allocations), total_profit)
     return OptimizeLogisticsResponse(
         allocations=allocations,
         total_expected_profit=round(total_profit, 2),

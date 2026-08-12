@@ -7,6 +7,8 @@ only the exported ``.onnx`` artifact.
 
 from pathlib import Path
 from typing import Iterable
+import argparse
+import sys
 
 import numpy as np
 import onnxruntime as ort
@@ -98,3 +100,35 @@ class MultiViewGrader:
             final_grade = "D"
 
         return final_grade, defects
+
+
+def _resolve_cli_model(model_path: str | None, version_id: str | None) -> Path:
+    if model_path and version_id:
+        raise ValueError("Use either --model-path or --version-id, not both.")
+    if model_path:
+        return Path(model_path)
+    checkpoint_dir = Path(__file__).resolve().parent / "checkpoints"
+    if version_id:
+        from models.artifacts import resolve_version_artifact
+        return resolve_version_artifact(checkpoint_dir, version_id, "model.onnx")
+    from models.artifacts import resolve_latest_artifact
+    active_model, _ = resolve_latest_artifact(checkpoint_dir, "model.onnx")
+    return active_model or (checkpoint_dir / "best_multitask_model.onnx")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run versioned ONNX CV inference.")
+    parser.add_argument("images", nargs="+", help="One or more image paths")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--version-id", help="Immutable CV version under checkpoints/versions")
+    group.add_argument("--model-path", help="Explicit ONNX model path")
+    args = parser.parse_args()
+    model_path = _resolve_cli_model(args.model_path, args.version_id)
+    grade, defects = MultiViewGrader(model_path).predict_defects_and_grade(args.images)
+    print({"model_path": str(model_path), "grade": grade, "detected_defects": defects})
+
+
+if __name__ == "__main__":
+    # Allows `python models/cv/inference.py ...` as well as module execution.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    main()

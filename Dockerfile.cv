@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Code
 COPY models/__init__.py /app/models/__init__.py
+COPY models/artifacts.py /app/models/artifacts.py
 COPY models/cv/__init__.py /app/models/cv/__init__.py
 COPY models/cv/inference.py /app/models/cv/inference.py
 COPY api/cv_service /app/api/cv_service

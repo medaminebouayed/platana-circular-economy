@@ -4,6 +4,8 @@ Pré-entraînement du backbone sur MVTec AD (mono-vue), multi-catégories.
 """
 
 import argparse
+import os
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -18,9 +20,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
                              f1_score, roc_auc_score, confusion_matrix)
 from tqdm import tqdm
+import mlflow
+from dotenv import load_dotenv
 
-from backbone import create_backbone
-from mvtec_dataset import MVTecMultiCategoryDataset, MVTecDataset
+current_dir = Path(__file__).resolve().parent
+repo_root = current_dir.parents[1]
+if str(repo_root) not in sys.path:
+    sys.path.append(str(repo_root))
+
+from models.artifacts import create_version_dir, promote_version, write_manifest
+from models.cv.backbone import create_backbone
+from models.cv.mvtec_dataset import MVTecMultiCategoryDataset, MVTecDataset
 
 
 class CategoryFiLM(nn.Module):
@@ -245,6 +255,14 @@ class PretrainRunner:
             print("       Normal  Anomaly")
             print(cm)
             print("-" * 40)
+            mlflow.log_metrics({
+                "train_loss": float(train_loss),
+                "val_loss": float(val_metrics["loss"]),
+                "val_macro_f1_category": float(f1_macro_cat),
+                "val_macro_auc_category": float(auc_macro_cat),
+                "val_f1_global": float(f1_global),
+                "val_accuracy_global": float(acc_global),
+            }, step=epoch + 1)
 
             # Step le scheduler ReduceLROnPlateau sur le F1-Score Macro par Catégorie
             self.scheduler.step(f1_macro_cat)
@@ -324,8 +342,17 @@ def main():
     parser.add_argument("--lr_backbone", type=float, default=1e-5)
     parser.add_argument("--lr_head", type=float, default=2e-4)
     parser.add_argument("--patience", type=int, default=25)
-    parser.add_argument("--output", default="models/cv/checkpoints/backbone_mvtec.pt")
+    parser.add_argument("--output-dir", default="models/cv/checkpoints",
+                        help="Directory containing immutable backbone versions.")
     args = parser.parse_args()
+
+    load_dotenv(repo_root / ".env")
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_experiment(os.getenv("MLFLOW_BACKBONE_EXPERIMENT", "platana-cv-backbone"))
+    checkpoint_dir = repo_root / args.output_dir
+    version_id, version_dir = create_version_dir(checkpoint_dir, "backbone")
 
     config = {
         "backbone": args.backbone,
@@ -334,7 +361,7 @@ def main():
         "lr_head": args.lr_head,
         "weight_decay": 1e-4,
         "patience": args.patience,
-        "output_path": args.output
+        "output_path": str(version_dir / "backbone.pt")
     }
 
     train_transform = transforms.Compose([
@@ -394,9 +421,41 @@ def main():
         collate_fn=collate_with_category
     )
 
-    num_categories = len(MVTecDataset.CATEGORIES)
-    runner = PretrainRunner(config, num_categories=num_categories)
-    runner.run(train_loader, val_loader, test_loader)
+    with mlflow.start_run(run_name="cv-backbone-pretrain") as run:
+        mlflow.log_params({
+            "local_model_version": version_id,
+            "backbone": args.backbone,
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lr_backbone": args.lr_backbone,
+            "lr_head": args.lr_head,
+            "patience": args.patience,
+        })
+        mlflow.set_tag("pipeline", "cv-backbone-pretraining")
+        num_categories = len(MVTecDataset.CATEGORIES)
+        runner = PretrainRunner(config, num_categories=num_categories)
+        test_metrics = runner.run(train_loader, val_loader, test_loader)
+        scalar_test_metrics = {
+            f"test_{name}": float(value)
+            for name, value in test_metrics.items()
+            if isinstance(value, (int, float, np.floating))
+        }
+        mlflow.log_metrics(scalar_test_metrics)
+        artifact_path = version_dir / "backbone.pt"
+        manifest_path = write_manifest(version_dir, {
+            "version_id": version_id,
+            "model_type": "cv-backbone-mvtec",
+            "mlflow_run_id": run.info.run_id,
+            "metrics": scalar_test_metrics,
+            "artifacts": {"backbone": "backbone.pt"},
+        })
+        promote_version(
+            checkpoint_dir, version_id, {"backbone": "backbone.pt"},
+            pointer_name="latest_backbone.json",
+        )
+        mlflow.log_artifact(str(artifact_path), artifact_path="model")
+        mlflow.log_artifact(str(manifest_path), artifact_path="model")
+        print(f"[OK] Backbone version saved: {version_dir}")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ── SECURE DOCKER SOCKET PROXY ──────────────────────────────
   docker-proxy:
@@ -24,14 +22,12 @@ services:
     container_name: platana-traefik
     restart: always
     command:
-      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.endpoint=tcp://docker-proxy:2375" 
       - "--entrypoints.web.address=:80"
     ports:
       - "8081:80"
-      - "8082:8080"
     depends_on:
       - docker-proxy
   # ── MongoDB ──────────────────────────────────────────────────
@@ -54,6 +50,44 @@ services:
       timeout: 10s
       retries: 5
 
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: platana-mlflow
+    restart: unless-stopped
+    volumes:
+      - mlflow-data:/mlflow
+    environment:
+      - MLFLOW_SERVER_ALLOWED_HOSTS=${MLFLOW_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/mlflow/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mlflow.rule=PathPrefix(`/mlflow`)"
+      - "traefik.http.routers.mlflow.entrypoints=web"
+      - "traefik.http.routers.mlflow.priority=100"
+      - "traefik.http.routers.mlflow.middlewares=mlflow-auth"
+      - "traefik.http.middlewares.mlflow-auth.basicauth.users=${MLFLOW_BASIC_AUTH_USERS:?Set MLFLOW_BASIC_AUTH_USERS in .env}"
+      - "traefik.http.middlewares.mlflow-auth.basicauth.removeheader=true"
+      - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: platana-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   # ── CV Service ───────────────────────────────────────────────
   cv-service:
     build:
@@ -66,8 +100,6 @@ services:
       - ./models/cv/checkpoints:/app/models/cv/checkpoints:ro
     env_file:
       - .env
-    environment:
-      - CV_MODEL_PATH=/app/models/cv/checkpoints/best_multitask_model.onnx
     networks:
       - default
       - platana-shared-network
@@ -89,9 +121,14 @@ services:
       - ./models/pricing/checkpoints:/app/models/pricing/checkpoints:ro
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     networks:
       - default
       - platana-shared-network
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 30s
@@ -161,6 +198,8 @@ services:
     labels:
       # ---- TRAEFIK LABELS ----
       - "traefik.enable=true"
+      # main-service is attached to two networks; force the one Traefik can reach.
+      - "traefik.docker.network=platana-circular-economy_default"
       - "traefik.http.routers.main.rule=Host(`localhost`) && PathPrefix(`/api`)"
       - "traefik.http.routers.main.entrypoints=web"
       - "traefik.http.services.main.loadbalancer.server.port=8003"
@@ -187,6 +226,10 @@ volumes:
   mongo-data:
     driver: local
   uploads-data:
+    driver: local
+  mlflow-data:
+    driver: local
+  redis-data:
     driver: local
 
 networks:
