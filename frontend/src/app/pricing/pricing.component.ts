@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 
 import { AuthService } from '../services/auth.service';
+import { ApiService } from '../services/api.service';
+import { TranslationService } from '../services/translation.service';
 
 @Component({
   selector: 'app-pricing',
@@ -46,7 +48,9 @@ export class PricingComponent {
   ];
 
   constructor(
-    public authService: AuthService
+    public authService: AuthService,
+    private api: ApiService,
+    public translation: TranslationService
   ) {}
 
   applyPreset(preset: any) {
@@ -57,10 +61,20 @@ export class PricingComponent {
   estimate() {
     this.isLoading = true;
     this.result = null;
-
-    // Deprecated
-    console.log("Estimating...");
-    this.isLoading = false;
+    this.api.predictPrice(this.form).subscribe({
+      next: (res) => {
+        this.isLoading = false;
+        this.result = res;
+        if (this.result) {
+          this.history.unshift({ request: { ...this.form }, result: this.result });
+          if (this.history.length > 5) this.history.pop();
+        }
+      },
+      error: () => {
+        this.isLoading = false;
+        this.result = null;
+      }
+    });
   }
 
   getPriceRatioPct(): number {
@@ -81,7 +95,12 @@ export class PricingComponent {
   }
 
   getGradeLabel(g: string) {
-    const map: Record<string, string> = { A: 'Excellent', B: 'Très Bon', C: 'Correct', D: 'Mauvais' };
+    const map: Record<string, string> = {
+      A: this.translation.t('pricing.gradeDesc.A'),
+      B: this.translation.t('pricing.gradeDesc.B'),
+      C: this.translation.t('pricing.gradeDesc.C'),
+      D: this.translation.t('pricing.gradeDesc.D'),
+    };
     return map[g] || g;
   }
 }

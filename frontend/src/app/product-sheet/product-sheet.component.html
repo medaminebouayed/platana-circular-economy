@@ -4,29 +4,29 @@
   <div class="sheet-left">
     <div class="platana-card">
       <div class="platana-card-header">
-        <span class="platana-card-title">Paramètres du produit</span>
+        <span class="platana-card-title">{{ 'sheet.productParams' | translate }}</span>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Marque</label>
+          <label class="form-label">{{ 'sheet.brand' | translate }}</label>
           <input type="text" [(ngModel)]="form.brand" class="form-input">
         </div>
         <div class="form-group">
-          <label class="form-label">Modèle</label>
+          <label class="form-label">{{ 'sheet.model' | translate }}</label>
           <input type="text" [(ngModel)]="form.model" class="form-input">
         </div>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Catégorie</label>
+          <label class="form-label">{{ 'sheet.category' | translate }}</label>
           <select [(ngModel)]="form.category" class="form-select">
             <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Grade</label>
+          <label class="form-label">{{ 'sheet.grade' | translate }}</label>
           <div class="grade-pills">
             <button *ngFor="let g of grades" class="grade-pill" [class.active]="form.grade === g"
               [class]="'pill-' + g.toLowerCase()" (click)="form.grade = g">{{ g }}</button>
@@ -36,17 +36,17 @@
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Prix Origine (€)</label>
+          <label class="form-label">{{ 'sheet.originalPrice' | translate }}</label>
           <input type="number" [(ngModel)]="form.originalPrice" class="form-input" min="0" step="10">
         </div>
         <div class="form-group">
-          <label class="form-label">Prix Estimé Revente (€)</label>
+          <label class="form-label">{{ 'sheet.estimatedResalePrice' | translate }}</label>
           <input type="number" [(ngModel)]="form.predictedPrice" class="form-input" min="0" step="10">
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Défauts détectés</label>
+        <label class="form-label">{{ 'sheet.detectedDefects' | translate }}</label>
         <div class="defect-tags">
           <button *ngFor="let d of defectOptions" class="defect-tag" [class.selected]="isDefectSelected(d.value)" (click)="toggleDefect(d.value)">
             {{ d.label }}
@@ -61,7 +61,7 @@
         <svg *ngIf="isLoading" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg>
-        {{ isLoading ? 'Génération IA en cours...' : 'Générer la Fiche Produit' }}
+        {{ isLoading ? ('sheet.generating' | translate) : ('sheet.generate' | translate) }}
       </button>
     </div>
   </div>
@@ -72,15 +72,15 @@
     <!-- Empty State -->
     <div class="result-placeholder" *ngIf="!result && !isLoading">
       <span class="placeholder-emoji">📄</span>
-      <h3>Aperçu de la Fiche Produit</h3>
-      <p>Renseignez les informations du produit et lancez la génération pour obtenir une fiche prête à publier sur vos canaux de revente.</p>
+      <h3>{{ 'sheet.previewTitle' | translate }}</h3>
+      <p>{{ 'sheet.previewSub' | translate }}</p>
     </div>
 
     <!-- Loading State -->
     <div class="result-placeholder" *ngIf="isLoading">
       <div class="loading-spinner-large"></div>
-      <h3>Génération IA en cours...</h3>
-      <p>LLM génératif en rédaction<br>Optimisation pour canaux de revente</p>
+      <h3>{{ 'sheet.generatingTitle' | translate }}</h3>
+      <p>{{ 'sheet.generatingSub1' | translate }}<br>{{ 'sheet.generatingSub2' | translate }}</p>
     </div>
 
     <!-- Generated Sheet Preview -->
@@ -105,9 +105,9 @@
           <div class="listing-price-block">
             <div class="listing-price" style="display: flex; align-items: center; gap: 0.5rem;">
               {{ form.predictedPrice }} €
-              <span class="badge badge-success" style="font-size: 0.7rem;" title="Validation Humaine effectuée par l'Admin">✓ Validé Admin</span>
+              <span class="badge badge-success" style="font-size: 0.7rem;" [title]="'sheet.adminValidation' | translate">{{ 'sheet.validatedAdmin' | translate }}</span>
             </div>
-            <div class="listing-price-compare">Prix neuf : {{ form.originalPrice }} €</div>
+            <div class="listing-price-compare">{{ 'sheet.newPrice' | translate }} {{ form.originalPrice }} €</div>
           </div>
         </div>
 
@@ -121,7 +121,7 @@
 
         <!-- Highlights -->
         <div class="listing-highlights">
-          <h4>✅ Points forts</h4>
+          <h4>{{ 'sheet.highlights' | translate }}</h4>
           <ul>
             <li *ngFor="let h of result.highlights">{{ h }}</li>
           </ul>
@@ -129,7 +129,7 @@
 
         <!-- Attention Points -->
         <div class="listing-attention" *ngIf="result.attention_points.length > 0">
-          <h4>⚠️ Points d'attention</h4>
+          <h4>{{ 'sheet.attentionPoints' | translate }}</h4>
           <ul>
             <li *ngFor="let a of result.attention_points">{{ a }}</li>
           </ul>
@@ -139,9 +139,9 @@
       <!-- Channel Sync Section -->
       <div class="platana-card channel-sync-card">
         <div class="platana-card-header">
-          <span class="platana-card-title">Canaux recommandés</span>
+          <span class="platana-card-title">{{ 'sheet.recommendedChannels' | translate }}</span>
           <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.82rem;" (click)="simulatePublish()" [disabled]="isPublishing || publishedChannels.length > 0">
-            {{ publishedChannels.length > 0 ? '✓ Publiés' : isPublishing ? 'Publication...' : 'Publier sur tous' }}
+            {{ publishedChannels.length > 0 ? ('sheet.published' | translate) : isPublishing ? ('sheet.publishing' | translate) : ('sheet.publishAll' | translate) }}
           </button>
         </div>
 
@@ -154,9 +154,9 @@
             </div>
             <span class="step-label">{{ step.label }}</span>
             <span class="step-status-text">
-              <span *ngIf="step.status === 'done'">Publié</span>
-              <span *ngIf="step.status === 'running'">En cours...</span>
-              <span *ngIf="step.status === 'pending'">En attente</span>
+              <span *ngIf="step.status === 'done'">{{ 'sheet.publishedStatus' | translate }}</span>
+              <span *ngIf="step.status === 'running'">{{ 'sheet.inProgress' | translate }}</span>
+              <span *ngIf="step.status === 'pending'">{{ 'sheet.pending' | translate }}</span>
             </span>
           </div>
           <ng-template #noSteps>

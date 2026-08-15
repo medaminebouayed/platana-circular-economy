@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 import { ApiService } from '../services/api.service';
+import { TranslationService } from '../services/translation.service';
 
 @Component({
   selector: 'app-user-settings',
@@ -35,7 +36,11 @@ export class UserSettingsComponent implements OnInit {
   passwordSuccess = false;
   passwordError = '';
 
-  constructor(public authService: AuthService, private api: ApiService) {}
+  constructor(public authService: AuthService, private api: ApiService, public translation: TranslationService) {}
+
+  onLanguageChange() {
+    this.translation.setLang(this.language);
+  }
 
   ngOnInit() {
     this.isDarkTheme = document.body.classList.contains('dark-theme');
@@ -94,14 +99,14 @@ export class UserSettingsComponent implements OnInit {
       },
       error: (err) => {
         this.prefsSaving = false;
-        this.prefsError = err?.error?.detail || 'Erreur lors de la sauvegarde des préférences.';
+        this.prefsError = err?.error?.detail || this.translation.t('settings.prefsSaveError');
       }
     });
   }
 
   saveProfile() {
     if (!this.profileName.trim()) {
-      this.profileError = 'Le nom ne peut pas être vide.';
+      this.profileError = this.translation.t('settings.nameRequired');
       return;
     }
     this.profileSaving = true;
@@ -115,7 +120,7 @@ export class UserSettingsComponent implements OnInit {
       },
       error: (err: any) => {
         this.profileSaving = false;
-        this.profileError = err?.error?.detail || 'Erreur lors de la mise à jour du profil.';
+        this.profileError = err?.error?.detail || this.translation.t('settings.profileUpdateError');
       }
     });
   }
@@ -123,15 +128,15 @@ export class UserSettingsComponent implements OnInit {
   changePassword() {
     this.passwordError = '';
     if (!this.currentPassword) {
-      this.passwordError = 'Veuillez saisir votre mot de passe actuel.';
+      this.passwordError = this.translation.t('settings.currentPasswordRequired');
       return;
     }
     if (this.newPassword.length < 6) {
-      this.passwordError = 'Le nouveau mot de passe doit contenir au moins 6 caractères.';
+      this.passwordError = this.translation.t('settings.newPasswordMin');
       return;
     }
     if (this.newPassword !== this.confirmPassword) {
-      this.passwordError = 'Les mots de passe ne correspondent pas.';
+      this.passwordError = this.translation.t('settings.passwordMismatch');
       return;
     }
     this.passwordSaving = true;
@@ -147,7 +152,7 @@ export class UserSettingsComponent implements OnInit {
       },
       error: (err: any) => {
         this.passwordSaving = false;
-        this.passwordError = err?.error?.detail || 'Erreur lors du changement de mot de passe.';
+        this.passwordError = err?.error?.detail || this.translation.t('settings.passwordChangeError');
       }
     });
   }

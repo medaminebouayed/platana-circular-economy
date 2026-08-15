@@ -6,7 +6,7 @@
     <!-- Quick Presets -->
     <div class="platana-card preset-card">
       <div class="platana-card-header">
-        <span class="platana-card-title">⚡ Produits pré-configurés</span>
+        <span class="platana-card-title">{{ 'pricing.preconfigured' | translate }}</span>
       </div>
       <div class="preset-grid">
         <button class="preset-btn" *ngFor="let p of presets" (click)="applyPreset(p)">
@@ -18,29 +18,29 @@
     <!-- Input Form -->
     <div class="platana-card">
       <div class="platana-card-header">
-        <span class="platana-card-title">Paramètres produit</span>
+        <span class="platana-card-title">{{ 'pricing.productParams' | translate }}</span>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Marque</label>
-          <input type="text" [(ngModel)]="form.brand" class="form-input" placeholder="Samsung, Apple...">
+          <label class="form-label">{{ 'pricing.brand' | translate }}</label>
+          <input type="text" [(ngModel)]="form.brand" class="form-input" [placeholder]="'pricing.brandPlaceholder' | translate">
         </div>
         <div class="form-group">
-          <label class="form-label">Modèle</label>
-          <input type="text" [(ngModel)]="form.model" class="form-input" placeholder="Galaxy S22, iPhone 13...">
+          <label class="form-label">{{ 'pricing.model' | translate }}</label>
+          <input type="text" [(ngModel)]="form.model" class="form-input" [placeholder]="'pricing.modelPlaceholder' | translate">
         </div>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Catégorie</label>
+          <label class="form-label">{{ 'pricing.category' | translate }}</label>
           <select [(ngModel)]="form.category" class="form-select">
             <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Grade d'État</label>
+          <label class="form-label">{{ 'pricing.gradeState' | translate }}</label>
           <div class="grade-selector">
             <button *ngFor="let g of grades" class="grade-btn" [class.active]="form.grade === g"
               [class]="'grade-btn-' + g.toLowerCase()" (click)="form.grade = g">
@@ -52,22 +52,22 @@
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Prix d'Achat Origine (€)</label>
-          <input type="number" [(ngModel)]="form.original_price" class="form-input" min="0" step="10" placeholder="Prix neuf">
+          <label class="form-label">{{ 'pricing.originalPurchasePrice' | translate }}</label>
+          <input type="number" [(ngModel)]="form.original_price" class="form-input" min="0" step="10" [placeholder]="'pricing.newPrice' | translate">
         </div>
         <div class="form-group">
-          <label class="form-label">Coût de Remise en État (€)</label>
-          <input type="number" [(ngModel)]="form.repair_cost" class="form-input" min="0" step="5" placeholder="0 si aucun">
+          <label class="form-label">{{ 'pricing.refurbCost' | translate }}</label>
+          <input type="number" [(ngModel)]="form.repair_cost" class="form-input" min="0" step="5" [placeholder]="'pricing.zeroIfNone' | translate">
         </div>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Âge du produit (jours)</label>
+          <label class="form-label">{{ 'pricing.productAge' | translate }}</label>
           <input type="number" [(ngModel)]="form.age_days" class="form-input" min="1" step="30" placeholder="365">
         </div>
         <div class="form-group">
-          <label class="form-label">Saisonnalité</label>
+          <label class="form-label">{{ 'pricing.seasonality' | translate }}</label>
           <select [(ngModel)]="form.season" class="form-select">
             <option *ngFor="let s of seasons" [value]="s.value">{{ s.label }}</option>
           </select>
@@ -82,14 +82,14 @@
         <svg *ngIf="isLoading" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg>
-        {{ isLoading ? 'Calcul en cours...' : 'Prédire le prix optimal' }}
+        {{ isLoading ? ('pricing.calculating' | translate) : ('pricing.predict' | translate) }}
       </button>
     </div>
 
     <!-- History -->
     <div class="platana-card" *ngIf="history.length > 0">
       <div class="platana-card-header">
-        <span class="platana-card-title">Historique des estimations</span>
+        <span class="platana-card-title">{{ 'pricing.estimationHistory' | translate }}</span>
       </div>
       <div class="history-list">
         <div class="history-item" *ngFor="let h of history">
@@ -109,15 +109,15 @@
     <!-- Empty State -->
     <div class="result-placeholder" *ngIf="!result && !isLoading">
       <span class="placeholder-emoji">💰</span>
-      <h3>Résultat de Pricing</h3>
-      <p>Renseignez les paramètres du produit et lancez la prédiction pour obtenir le prix optimal de revente.</p>
+      <h3>{{ 'pricing.resultTitle' | translate }}</h3>
+      <p>{{ 'pricing.resultSub' | translate }}</p>
     </div>
 
     <!-- Loading State -->
     <div class="result-placeholder" *ngIf="isLoading">
       <div class="loading-spinner-large"></div>
-      <h3>Calcul en cours...</h3>
-      <p>Modèle Gradient Boosting en prédiction</p>
+      <h3>{{ 'pricing.calculatingTitle' | translate }}</h3>
+      <p>{{ 'pricing.calculatingSub' | translate }}</p>
     </div>
 
     <!-- Result -->
@@ -125,10 +125,10 @@
 
       <!-- Main Price Display -->
       <div class="price-hero">
-        <div class="price-label">Prix de revente optimal estimé</div>
+        <div class="price-label">{{ 'pricing.optimalPrice' | translate }}</div>
         <div class="price-value">{{ result.predicted_price | number:'1.0-0' }}<span class="price-currency"> €</span></div>
         <div class="price-interval">
-          Intervalle de confiance : {{ result.confidence_interval[0] | number:'1.0-0' }} € — {{ result.confidence_interval[1] | number:'1.0-0' }} €
+          {{ 'pricing.confidenceInterval' | translate }} {{ result.confidence_interval[0] | number:'1.0-0' }} € — {{ result.confidence_interval[1] | number:'1.0-0' }} €
         </div>
 
         <!-- Donut ratio -->
@@ -139,19 +139,19 @@
               [attr.stroke-dasharray]="(getPriceRatioPct() / 100) * 201.1 + ' 201.1'"
               stroke-dashoffset="50.3" stroke-linecap="round"/>
             <text x="40" y="37" text-anchor="middle" class="ratio-pct-svg">{{ getPriceRatioPct() }}%</text>
-            <text x="40" y="49" text-anchor="middle" class="ratio-label-svg">du neuf</text>
+            <text x="40" y="49" text-anchor="middle" class="ratio-label-svg">{{ 'pricing.ofNew' | translate }}</text>
           </svg>
           <div class="ratio-details">
             <div class="ratio-row">
-              <span>Prix d'origine</span>
+              <span>{{ 'pricing.originalPrice' | translate }}</span>
               <strong>{{ form.original_price | number }} €</strong>
             </div>
             <div class="ratio-row">
-              <span>Frais remise en état</span>
+              <span>{{ 'pricing.refurbFees' | translate }}</span>
               <strong>— {{ form.repair_cost || 0 }} €</strong>
             </div>
             <div class="ratio-row" style="border-top: 1px solid var(--light-border); padding-top: 0.5rem; margin-top: 0.25rem;">
-              <span>Marge nette estimée</span>
+              <span>{{ 'pricing.estimatedMargin' | translate }}</span>
               <strong [style.color]="getMargin() > 0 ? '#10b981' : '#ef4444'">{{ getMargin() | number }} €</strong>
             </div>
           </div>
@@ -163,25 +163,25 @@
         <div class="platana-card-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
           <span class="platana-card-title" style="font-size: 0.95rem; color: var(--accent-yellow); display: flex; align-items: center; gap: 0.5rem;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            Validation Humaine & Publication
+            {{ 'pricing.humanValidation' | translate }}
           </span>
-          <span class="badge badge-success" *ngIf="isApprovedForMarketplace">Approuvé</span>
+          <span class="badge badge-success" *ngIf="isApprovedForMarketplace">{{ 'pricing.approved' | translate }}</span>
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 1rem;">
           <p style="font-size: 0.85rem; color: var(--text-muted);">
-            Ajustez le prix de revente si nécessaire avant d'approuver la mise en vente sur les marketplaces.
+            {{ 'pricing.validationHint' | translate }}
           </p>
           
           <div style="display: flex; align-items: center; gap: 1rem;">
             <div style="flex: 1;">
-              <label class="form-label">Prix Final (Override) - €</label>
+              <label class="form-label">{{ 'pricing.finalPrice' | translate }}</label>
               <input type="number" [(ngModel)]="adminOverriddenPrice" class="form-input" min="0" step="5" [disabled]="isApprovedForMarketplace">
             </div>
             <div style="flex: 1; display: flex; align-items: center; padding-top: 1.5rem;">
                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-main); font-size: 0.9rem;">
                   <input type="checkbox" [(ngModel)]="isApprovedForMarketplace" [disabled]="isApprovedForMarketplace" style="width: 1.2rem; height: 1.2rem; accent-color: var(--primary);">
-                  Publier sur Marketplace
+                  {{ 'pricing.publishMarketplace' | translate }}
                </label>
             </div>
           </div>
@@ -191,27 +191,27 @@
       <!-- Explanation Block -->
       <div class="platana-card explanation-card" style="margin-top: 1.5rem;">
         <div class="platana-card-header">
-          <span class="platana-card-title">💡 Explication du Modèle</span>
+          <span class="platana-card-title">{{ 'pricing.modelExplanation' | translate }}</span>
         </div>
-        <p class="explanation-text" style="color: var(--text-main);">{{ result.explanation }}</p>
+        <p class="explanation-text" style="color: var(--text-main);" *ngIf="result.explanation">{{ result.explanation }}</p>
 
         <!-- Factors breakdown -->
         <div class="factor-list" style="margin-top: 1rem;">
           <div class="factor-item" style="color: var(--text-main);">
             <span class="factor-dot green"></span>
-            <span>Grade {{ form.grade }} ({{ getGradeLabel(form.grade) }})</span>
+            <span>{{ 'pricing.gradeState' | translate }} {{ form.grade }} ({{ getGradeLabel(form.grade) }})</span>
           </div>
           <div class="factor-item" style="color: var(--text-main);">
             <span class="factor-dot blue"></span>
-            <span>Âge {{ form.age_days }} jours</span>
+            <span>{{ 'pricing.productAge' | translate }} {{ form.age_days }} {{ 'pricing.ageDays' | translate }}</span>
           </div>
           <div class="factor-item" *ngIf="(form.repair_cost || 0) > 0" style="color: var(--text-main);">
             <span class="factor-dot yellow"></span>
-            <span>Remise en état {{ form.repair_cost }}€</span>
+            <span>{{ 'pricing.refurbishment' | translate }} {{ form.repair_cost }}€</span>
           </div>
           <div class="factor-item" style="color: var(--text-main);">
             <span class="factor-dot purple"></span>
-            <span>Catégorie {{ form.category }}</span>
+            <span>{{ 'pricing.category' | translate }} {{ form.category }}</span>
           </div>
         </div>
       </div>
@@ -219,7 +219,7 @@
       <!-- CTA to next step -->
       <div class="next-step-row" style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
         <a routerLink="/product-sheet" class="btn btn-primary" style="flex:1; justify-content: center;">
-          Générer la fiche produit →
+          {{ 'pricing.generateSheet' | translate }}
         </a>
       </div>
     </ng-container>

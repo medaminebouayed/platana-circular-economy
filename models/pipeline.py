@@ -29,6 +29,22 @@ def _resolve_model_artifact(checkpoint_dir, artifact_name, version_id=None, mode
 
 
 class RefurbDecisionEngine:
+    REFURB_COSTS = {
+        "screen_crack": 120.0, "cosmetic_scratch": 15.0,
+        "back_glass_crack": 40.0, "battery_weak": 30.0, "no_defect": 5.0
+    }
+    MIN_MARGIN = 30.0
+    RESALE_THRESHOLD = 50.0
+    RECONDITION_THRESHOLD = 20.0
+
+    @staticmethod
+    def decide(profit: float) -> str:
+        if profit >= RefurbDecisionEngine.RESALE_THRESHOLD:
+            return "RESALE_DIRECT"
+        if profit >= RefurbDecisionEngine.RECONDITION_THRESHOLD:
+            return "RECONDITION"
+        return "RECYCLE"
+
     def __init__(self, pricing_version_id=None, pricing_model_path=None, pricing_engineer_path=None):
         # Le dossier models/ actuel
         models_dir = Path(__file__).resolve().parent
@@ -53,11 +69,8 @@ class RefurbDecisionEngine:
                 "Run the pricing training script (models/pricing/train.py) to generate it."
             )
         self.sheet_generator = ProductSheetGenerator()
-        self.refurb_costs = {
-            "screen_crack": 120.0, "cosmetic_scratch": 15.0,
-            "back_glass_crack": 40.0, "battery_weak": 30.0, "no_defect": 5.0
-        }
-        self.min_margin = 30.0 
+        self.refurb_costs = dict(self.REFURB_COSTS)
+        self.min_margin = self.MIN_MARGIN 
 
     def estimate_refurb_cost(self, defects):
         return sum(self.refurb_costs.get(d, 0) for d in defects)
@@ -101,12 +114,11 @@ class RefurbDecisionEngine:
         potential_profit = round(potential_profit, 2)
         
         # Orchestrator-aligned 3-tier decision logic
-        if potential_profit >= 50.0:
-            decision = "RESALE_DIRECT"
+        decision = self.decide(potential_profit)
+        if decision == "RESALE_DIRECT":
             action = f"Revente directe en l'état à {market_price}€"
             product_sheet = None
-        elif potential_profit >= 20.0:
-            decision = "RECONDITION"
+        elif decision == "RECONDITION":
             action = f"Reconditionnement rentable puis vente à {market_price}€"
             
             # --- GÉNÉRATION GenAI ET PDF (Uniquement pour RECONDITION) ---
@@ -125,8 +137,8 @@ class RefurbDecisionEngine:
             product_sheet["pdf_path"] = str(pdf_path)
             
         else:
-            decision = "RECYCLE"
             action = f"Non rentable pour Platana (Profit estimé: {potential_profit}€)"
+            decision = "RECYCLE"
             product_sheet = None
             
         return {

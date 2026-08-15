@@ -1,9 +1,25 @@
 <div class="settings-page" *ngIf="user$ | async as user">
 
   <div class="settings-header">
-    <h1 class="settings-title">🛡️ Paramètres Admin</h1>
-    <p class="settings-subtitle">Supervision, apparence et seuils de contrôle qualité IA</p>
+    <h1 class="settings-title">{{ 'adminSettings.title' | translate }}</h1>
+    <p class="settings-subtitle">{{ 'adminSettings.subtitle' | translate }}</p>
   </div>
+
+  <!-- ══════════════════ AI FAULTS ALERT BANNER ══════════════════ -->
+  <div class="drift-alert-banner" *ngIf="driftStats?.alert">
+    <div class="drift-alert-icon">⚠️</div>
+    <div class="drift-alert-body">
+      <strong>{{ 'adminSettings.driftBannerTitle' | translate }}</strong>
+      <span>{{ 'adminSettings.driftBannerText' | translate:{ grade: driftStats.grade_changes, price: driftStats.price_drifts, eval: driftStats.evaluations, max: driftStats.max_faults } }}</span>
+    </div>
+    <button class="btn btn-danger drift-alert-btn" (click)="triggerTraining('pricing')" [disabled]="trainingBusy">
+      {{ 'adminSettings.driftRetrainNow' | translate }}
+    </button>
+  </div>
+  <div class="drift-alert-ok" *ngIf="driftStats && !driftStats.alert && !driftLoading">
+    {{ 'adminSettings.driftOk' | translate:{ eval: driftStats.evaluations, grade: driftStats.grade_changes } }}
+  </div>
+  <div class="feedback-msg error" *ngIf="driftError">⚠️ {{ driftError }}</div>
 
   <div class="settings-grid">
 
@@ -12,8 +28,8 @@
       <div class="card-header">
         <div class="card-icon" style="background: rgba(139,92,246,0.1); font-size:1.5rem;">🛡️</div>
         <div>
-          <h2 class="card-title">Profil Administrateur</h2>
-          <p class="card-desc">Modifiez votre identité de superviseur</p>
+          <h2 class="card-title">{{ 'adminSettings.profileTitle' | translate }}</h2>
+          <p class="card-desc">{{ 'adminSettings.profileDesc' | translate }}</p>
         </div>
       </div>
 
@@ -21,28 +37,28 @@
         <img [src]="user.avatar" class="profile-avatar" alt="Avatar">
         <div>
           <div class="profile-name">{{ user.name }}</div>
-          <div class="profile-role-tag admin-tag">Administrateur</div>
+          <div class="profile-role-tag admin-tag">{{ 'adminSettings.role' | translate }}</div>
         </div>
       </div>
 
       <div class="settings-fields">
         <div class="form-group">
-          <label class="form-label">Nom d'affichage</label>
-          <input type="text" [(ngModel)]="profileName" class="form-input" placeholder="Votre nom">
+          <label class="form-label">{{ 'adminSettings.displayName' | translate }}</label>
+          <input type="text" [(ngModel)]="profileName" class="form-input" [placeholder]="'settings.yourName' | translate">
         </div>
         <div class="form-group">
-          <label class="form-label">Email</label>
+          <label class="form-label">{{ 'settings.email' | translate }}</label>
           <input type="email" [value]="user.email" class="form-input" disabled>
-          <span class="field-hint">L'adresse email ne peut pas être modifiée.</span>
+          <span class="field-hint">{{ 'settings.emailHint' | translate }}</span>
         </div>
       </div>
 
       <div class="action-row">
-        <div class="feedback-msg success" *ngIf="profileSuccess">✅ Profil mis à jour !</div>
+        <div class="feedback-msg success" *ngIf="profileSuccess">{{ 'adminSettings.updated' | translate }}</div>
         <div class="feedback-msg error" *ngIf="profileError">⚠️ {{ profileError }}</div>
         <button class="btn btn-primary admin-save" (click)="saveProfile()" [disabled]="profileSaving">
           <span *ngIf="profileSaving" class="btn-spinner-sm"></span>
-          {{ profileSaving ? 'Sauvegarde...' : '💾 Mettre à jour le profil' }}
+          {{ profileSaving ? ('settings.saving' | translate) : ('adminSettings.updateProfile' | translate) }}
         </button>
       </div>
     </div>
@@ -52,32 +68,32 @@
       <div class="card-header">
         <div class="card-icon" style="background: rgba(59,130,246,0.1); font-size:1.4rem;">🔑</div>
         <div>
-          <h2 class="card-title">Sécurité</h2>
-          <p class="card-desc">Changez votre mot de passe administrateur</p>
+          <h2 class="card-title">{{ 'settings.security' | translate }}</h2>
+          <p class="card-desc">{{ 'adminSettings.securityDesc' | translate }}</p>
         </div>
       </div>
 
       <div class="settings-fields">
         <div class="form-group">
-          <label class="form-label">Mot de passe actuel</label>
+          <label class="form-label">{{ 'settings.currentPassword' | translate }}</label>
           <input type="password" [(ngModel)]="currentPassword" class="form-input" placeholder="••••••••" autocomplete="current-password">
         </div>
         <div class="form-group">
-          <label class="form-label">Nouveau mot de passe</label>
-          <input type="password" [(ngModel)]="newPassword" class="form-input" placeholder="Min. 6 caractères" autocomplete="new-password">
+          <label class="form-label">{{ 'settings.newPassword' | translate }}</label>
+          <input type="password" [(ngModel)]="newPassword" class="form-input" [placeholder]="'settings.minPasswordHint' | translate" autocomplete="new-password">
         </div>
         <div class="form-group">
-          <label class="form-label">Confirmer le nouveau mot de passe</label>
+          <label class="form-label">{{ 'settings.confirmPassword' | translate }}</label>
           <input type="password" [(ngModel)]="confirmPassword" class="form-input" placeholder="••••••••" autocomplete="new-password">
         </div>
       </div>
 
       <div class="action-row">
-        <div class="feedback-msg success" *ngIf="passwordSuccess">✅ Mot de passe modifié avec succès !</div>
+        <div class="feedback-msg success" *ngIf="passwordSuccess">{{ 'settings.passwordChanged' | translate }}</div>
         <div class="feedback-msg error" *ngIf="passwordError">⚠️ {{ passwordError }}</div>
         <button class="btn btn-primary admin-save" (click)="changePassword()" [disabled]="passwordSaving">
           <span *ngIf="passwordSaving" class="btn-spinner-sm"></span>
-          {{ passwordSaving ? 'Modification...' : '🔒 Changer le mot de passe' }}
+          {{ passwordSaving ? ('settings.changingPassword' | translate) : ('settings.changePassword' | translate) }}
         </button>
       </div>
     </div>
@@ -87,15 +103,15 @@
       <div class="card-header">
         <div class="card-icon appearance-icon" style="font-size:1.5rem;">🎨</div>
         <div>
-          <h2 class="card-title">Apparence</h2>
-          <p class="card-desc">Interface et ergonomie</p>
+          <h2 class="card-title">{{ 'adminSettings.appearance' | translate }}</h2>
+          <p class="card-desc">{{ 'adminSettings.appearanceDesc' | translate }}</p>
         </div>
       </div>
 
       <div class="setting-row">
         <div class="setting-info">
-          <span class="setting-name">Thème sombre</span>
-          <span class="setting-desc">Mode clair / sombre global</span>
+          <span class="setting-name">{{ 'settings.darkTheme' | translate }}</span>
+          <span class="setting-desc">{{ 'settings.darkThemeDesc' | translate }}</span>
         </div>
         <div class="toggle-switch" [class.on]="isDarkTheme" (click)="toggleTheme()">
           <div class="toggle-thumb"></div>
@@ -104,10 +120,20 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <span class="setting-name">Rafraîchissement automatique</span>
-          <span class="setting-desc">Mettre à jour la file toutes les 30s</span>
+          <span class="setting-name">{{ 'adminSettings.autoRefresh' | translate }}</span>
+          <span class="setting-desc">{{ 'adminSettings.autoRefreshDesc' | translate }}</span>
         </div>
-        <div class="toggle-switch" [class.on]="autoRefreshQueue" (click)="autoRefreshQueue = !autoRefreshQueue">
+        <div class="toggle-switch" [class.on]="autoRefreshQueue" (click)="toggleAutoRefresh()">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-name">{{ 'settings.emailNotifications' | translate }}</span>
+          <span class="setting-desc">{{ 'adminSettings.emailNotificationsDesc' | translate }}</span>
+        </div>
+        <div class="toggle-switch" [class.on]="emailNotifs" (click)="emailNotifs = !emailNotifs">
           <div class="toggle-thumb"></div>
         </div>
       </div>
@@ -118,16 +144,16 @@
       <div class="card-header">
         <div class="card-icon" style="background: rgba(245,158,11,0.1); font-size:1.5rem;">🤖</div>
         <div>
-          <h2 class="card-title">Contrôle Qualité IA</h2>
-          <p class="card-desc">Seuils de déclenchement des alertes de dérive du modèle</p>
+          <h2 class="card-title">{{ 'adminSettings.aiControls' | translate }}</h2>
+          <p class="card-desc">{{ 'adminSettings.aiControlsDesc' | translate }}</p>
         </div>
       </div>
 
       <div class="model-controls-grid">
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-name">Alertes de dérive de grade</span>
-            <span class="setting-desc">Alerte si l'admin corrige souvent le grade IA</span>
+            <span class="setting-name">{{ 'adminSettings.gradeDriftAlert' | translate }}</span>
+            <span class="setting-desc">{{ 'adminSettings.gradeDriftAlertDesc' | translate }}</span>
           </div>
           <div class="toggle-switch" [class.on]="gradeDriftAlert" (click)="gradeDriftAlert = !gradeDriftAlert">
             <div class="toggle-thumb"></div>
@@ -135,33 +161,95 @@
         </div>
 
         <div class="form-group drift-threshold">
-          <label class="form-label">Seuil d'écart prix (%) avant alerte drift</label>
+          <label class="form-label">{{ 'adminSettings.priceDriftThreshold' | translate }}</label>
           <div class="range-row">
             <input type="range" [(ngModel)]="driftThreshold" min="5" max="50" step="5" class="range-input">
             <span class="range-value">{{ driftThreshold }}%</span>
           </div>
-          <p class="range-desc">Si l'admin corrige le prix de plus de {{ driftThreshold }}% → alerte de réentraînement.</p>
+          <p class="range-desc">{{ 'adminSettings.priceDriftThresholdDesc' | translate:{ value: driftThreshold } }}</p>
         </div>
 
-        <div class="setting-row">
-          <div class="setting-info">
-            <span class="setting-name">Notifications email</span>
-            <span class="setting-desc">Rapport quotidien des dérives et validations</span>
+        <div class="form-group drift-threshold">
+          <label class="form-label">{{ 'adminSettings.maxAIFaults' | translate }}</label>
+          <div class="range-row">
+            <input type="range" [(ngModel)]="maxAIFaults" min="1" max="50" step="1" class="range-input">
+            <span class="range-value">{{ maxAIFaults }}</span>
           </div>
-          <div class="toggle-switch" [class.on]="emailNotifs" (click)="emailNotifs = !emailNotifs">
-            <div class="toggle-thumb"></div>
-          </div>
+          <p class="range-desc">{{ 'adminSettings.maxAIFaultsDesc' | translate:{ value: maxAIFaults } }}</p>
         </div>
       </div>
 
       <div class="action-row" style="margin-top:1.5rem;">
-        <div class="feedback-msg success" *ngIf="prefsSuccess">✅ Paramètres administrateur mis à jour !</div>
+        <div class="feedback-msg success" *ngIf="prefsSuccess">{{ 'adminSettings.saved' | translate }}</div>
         <div class="feedback-msg error" *ngIf="prefsError">⚠️ {{ prefsError }}</div>
         <button class="btn btn-primary admin-save" (click)="savePreferences()" [disabled]="prefsSaving">
           <span *ngIf="prefsSaving" class="btn-spinner-sm"></span>
-          {{ prefsSaving ? 'Sauvegarde...' : '💾 Sauvegarder les paramètres' }}
+          {{ prefsSaving ? ('settings.saving' | translate) : ('adminSettings.save' | translate) }}
         </button>
       </div>
+    </div>
+
+    <!-- ══════════════════ CONTINUOUS LEARNING ══════════════════ -->
+    <div class="settings-card span-2">
+      <div class="card-header">
+        <div class="card-icon" style="background: rgba(34,197,94,0.1); font-size:1.5rem;">🎓</div>
+        <div>
+          <h2 class="card-title">{{ 'adminSettings.continuousLearning' | translate }}</h2>
+          <p class="card-desc">{{ 'adminSettings.continuousLearningDesc' | translate }}</p>
+        </div>
+      </div>
+
+      <div class="model-controls-grid training-grid">
+        <button class="btn btn-primary admin-save" (click)="triggerTraining('pricing')"
+                [disabled]="trainingBusy || isJobActive('pricing')">
+          <span *ngIf="trainingBusy === 'pricing'" class="btn-spinner-sm"></span>
+          {{ 'adminSettings.retrainPricing' | translate }}
+        </button>
+        <button class="btn btn-primary admin-save" (click)="triggerTraining('cv')"
+                [disabled]="trainingBusy || isJobActive('cv')">
+          <span *ngIf="trainingBusy === 'cv'" class="btn-spinner-sm"></span>
+          {{ 'adminSettings.retrainCV' | translate }}
+        </button>
+      </div>
+
+      <div class="feedback-msg" [class.success]="trainingMessage && !trainingError" [class.error]="trainingError" *ngIf="trainingMessage">
+        {{ trainingMessage }}
+      </div>
+      <div class="feedback-msg error" *ngIf="jobsError">⚠️ {{ jobsError }}</div>
+
+      <div class="training-jobs" *ngIf="trainingJobs.length">
+        <h3 class="training-jobs-title">{{ 'adminSettings.jobsTitle' | translate }}</h3>
+        <table class="training-table">
+          <thead>
+            <tr>
+              <th>{{ 'adminSettings.jobModel' | translate }}</th>
+              <th>{{ 'adminSettings.jobStatus' | translate }}</th>
+              <th>{{ 'adminSettings.jobRequested' | translate }}</th>
+              <th>{{ 'adminSettings.jobFinished' | translate }}</th>
+              <th>{{ 'adminSettings.jobDetails' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let job of trainingJobs">
+              <td>{{ job.model }}</td>
+              <td><span class="job-status" [class.status-active]="job.status === 'QUEUED' || job.status === 'RUNNING'"
+                         [class.status-failed]="job.status === 'FAILED'">{{ job.status }}</span></td>
+              <td>{{ job.requested_at | date:'short' }}</td>
+              <td>{{ (job.finished_at | date:'short') || '—' }}</td>
+              <td class="job-details">
+                <details *ngIf="job.log_tail">
+                  <summary>{{ 'adminSettings.jobLog' | translate }}</summary>
+                  <pre class="job-log">{{ job.log_tail }}</pre>
+                </details>
+                <span *ngIf="!job.log_tail">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p *ngIf="!trainingJobs.length && !jobsLoading && !jobsError" class="training-empty">
+        {{ 'adminSettings.noJobs' | translate }}
+      </p>
     </div>
 
     <!-- ══════════════════ SESSION ══════════════════ -->
@@ -169,13 +257,13 @@
       <div class="card-header">
         <div class="card-icon danger-icon" style="font-size:1.5rem;">🔐</div>
         <div>
-          <h2 class="card-title">Session</h2>
-          <p class="card-desc">Gestion de la connexion sécurisée</p>
+          <h2 class="card-title">{{ 'settings.session' | translate }}</h2>
+          <p class="card-desc">{{ 'adminSettings.sessionDesc' | translate }}</p>
         </div>
       </div>
       <button class="btn btn-danger logout-btn" (click)="authService.logout()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Déconnexion sécurisée
+        {{ 'adminSettings.secureLogout' | translate }}
       </button>
     </div>
 

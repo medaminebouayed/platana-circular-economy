@@ -15,9 +15,19 @@ import os
 import mlflow
 from dotenv import load_dotenv
 from models.artifacts import (create_version_dir, promote_version,
-                              resolve_latest_artifact, write_manifest)
+                              read_active_manifest, resolve_latest_artifact, write_manifest)
 
-def train(mode='continue'):
+
+def _safe_mlflow(fn, *args, **kwargs):
+    """Run an MLflow tracking call, but never let tracking failure abort training."""
+    try:
+        return fn(*args, **kwargs)
+    except Exception as exc:
+        print(f"[WARN] MLflow call '{getattr(fn, '__name__', 'fn')}' skipped: {exc}")
+        return None
+
+
+def train(mode='continue', promotion_policy='always', min_f1_improvement=0.002, epochs=100):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     current_dir = Path(__file__).resolve().parent
@@ -25,9 +35,9 @@ def train(mode='continue'):
     load_dotenv(root_dir / ".env")
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     if tracking_uri:
-        mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(os.getenv("MLFLOW_CV_EXPERIMENT", "platana-cv-grading"))
-    mlflow.start_run(run_name=f"cv-{mode}")
+        _safe_mlflow(mlflow.set_tracking_uri, tracking_uri)
+    _safe_mlflow(mlflow.set_experiment, os.getenv("MLFLOW_CV_EXPERIMENT", "platana-cv-grading"))
+    _safe_mlflow(mlflow.start_run, run_name=f"cv-{mode}")
     checkpoint_dir = root_dir / "models" / "cv" / "checkpoints"
     version_id, version_dir = create_version_dir(checkpoint_dir, "cv")
     
@@ -92,12 +102,11 @@ def train(mode='continue'):
     
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
     
-    epochs = 100
     best_val_f1 = 0.0
     early_stopping_rounds = 25
     epochs_without_improvement = 0
     best_model_path = version_dir / "model.pth"
-    mlflow.log_params({
+    _safe_mlflow(mlflow.log_params, {
         "mode": mode, "device": str(device), "epochs": epochs, "batch_size": 16,
         "optimizer": "AdamW", "scheduler": "ReduceLROnPlateau", "defect_threshold": 0.5,
         "local_model_version": version_id, "backbone_version": backbone_version or "legacy",
@@ -207,7 +216,7 @@ def train(mode='continue'):
         
         print(f"[DEFECT TASK] Exact: {exact_match*100:.2f}% | P: {p_def:.4f} | R: {r_def:.4f} | F1: {f1_def:.4f} | ROC-AUC: {roc_def:.4f}")
         print("-" * 50)
-        mlflow.log_metrics({
+        _safe_mlflow(mlflow.log_metrics, {
             "train_loss": running_loss / len(train_loader),
             "train_grade_loss": running_loss_grade / len(train_loader),
             "train_defect_loss": running_loss_defect / len(train_loader),
@@ -240,27 +249,47 @@ def train(mode='continue'):
                 break 
 
     if best_model_path.exists():
+        active_run = mlflow.active_run()
         manifest_path = write_manifest(version_dir, {
             "version_id": version_id,
             "model_type": "cv-multitask-grading-defects",
-            "mlflow_run_id": mlflow.active_run().info.run_id,
+            "mlflow_run_id": active_run.info.run_id if active_run else None,
             "metrics": {"best_val_grade_f1_macro": float(best_val_f1)},
             "parents": {"backbone_version": backbone_version or "legacy"},
             "artifacts": {"model": "model.pth"},
         })
-        promote_version(
-            checkpoint_dir, version_id, {"model": "model.pth"},
-            pointer_name="latest_training.json",
-        )
-        mlflow.log_artifact(str(best_model_path), artifact_path="model")
-        mlflow.log_artifact(str(manifest_path), artifact_path="model")
-    mlflow.log_metric("best_val_grade_f1_macro", best_val_f1)
-    mlflow.end_run()
+        active_manifest = read_active_manifest(checkpoint_dir, "latest_training.json")
+        active_f1 = (active_manifest or {}).get("metrics", {}).get("best_val_grade_f1_macro")
+        promoted = (
+            promotion_policy == "always"
+            or active_f1 is None
+            or (promotion_policy == "if-better" and best_val_f1 >= float(active_f1) + min_f1_improvement)
+        ) and promotion_policy != "never"
+        if promoted:
+            promote_version(
+                checkpoint_dir, version_id, {"model": "model.pth"},
+                pointer_name="latest_training.json",
+            )
+        _safe_mlflow(mlflow.set_tag, "promotion_status", "promoted" if promoted else "candidate_not_promoted")
+        _safe_mlflow(mlflow.set_tag, "promotion_policy", promotion_policy)
+        _safe_mlflow(mlflow.log_artifact, str(best_model_path), artifact_path="model")
+        _safe_mlflow(mlflow.log_artifact, str(manifest_path), artifact_path="model")
+    _safe_mlflow(mlflow.log_metric, "best_val_grade_f1_macro", best_val_f1)
+    _safe_mlflow(mlflow.end_run)
+    if best_model_path.exists():
+        print("[OK] Active CV training pointer updated." if promoted else "[INFO] CV candidate retained; active version unchanged.")
+        return promoted
+    return False
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, default='continue', choices=['from_scratch', 'continue'],
                         help="'from_scratch' to train both heads from MVTec backbone, 'continue' to load existing grading model and add defect head.")
+    parser.add_argument("--promotion-policy", choices=["always", "if-better", "never"], default="always")
+    parser.add_argument("--min-f1-improvement", type=float, default=0.002,
+                        help="Absolute validation F1 gain needed by if-better.")
+    parser.add_argument("--epochs", type=int, default=100,
+                        help="Number of epochs (default 100; pass 1 for a quick smoke test).")
     args = parser.parse_args()
     
-    train(mode=args.mode)
+    train(args.mode, args.promotion_policy, args.min_f1_improvement, args.epochs)

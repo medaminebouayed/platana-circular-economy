@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService, User } from './services/auth.service';
+import { TranslationService } from './services/translation.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
@@ -16,6 +17,7 @@ export class AppComponent implements OnInit {
 
   constructor(
     public authService: AuthService,
+    public translation: TranslationService,
     private router: Router
   ) {
     this.initTheme();
@@ -36,6 +38,10 @@ export class AppComponent implements OnInit {
     this.isDarkTheme = !this.isDarkTheme;
     localStorage.setItem('platana-theme', this.isDarkTheme ? 'dark' : 'light');
     this.applyTheme();
+  }
+
+  setLang(lang: string) {
+    this.translation.setLang(lang);
   }
 
   applyTheme() {
@@ -67,14 +73,14 @@ export class AppComponent implements OnInit {
 
 
   getRouteTitle(): string {
-    if (this.currentRoute.includes('dashboard')) return 'Espace Admin — Validation';
-    if (this.currentRoute.includes('user-portal')) return 'Déposer un Produit';
-    if (this.currentRoute.includes('grading')) return 'Vision & Inspection (Grading)';
-    if (this.currentRoute.includes('pricing')) return 'Moteur de Pricing Prédictif';
-    if (this.currentRoute.includes('product-sheet')) return 'Générateur de Fiche & Sync';
-    if (this.currentRoute.includes('logistics')) return 'Routage & Logistique RSE';
-    if (this.currentRoute.includes('settings/admin')) return 'Paramètres Admin';
-    if (this.currentRoute.includes('settings/user')) return 'Paramètres';
-    return 'Platana Engine';
+    if (this.currentRoute.includes('dashboard')) return this.translation.t('route.dashboard');
+    if (this.currentRoute.includes('user-portal')) return this.translation.t('route.userPortal');
+    if (this.currentRoute.includes('grading')) return this.translation.t('route.grading');
+    if (this.currentRoute.includes('pricing')) return this.translation.t('route.pricing');
+    if (this.currentRoute.includes('product-sheet')) return this.translation.t('route.productSheet');
+    if (this.currentRoute.includes('logistics')) return this.translation.t('route.logistics');
+    if (this.currentRoute.includes('settings/admin')) return this.translation.t('route.adminSettings');
+    if (this.currentRoute.includes('settings/user')) return this.translation.t('route.settings');
+    return this.translation.t('route.platana');
   }
 }

@@ -546,7 +546,28 @@
 .h-item-img img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+}
+
+.h-item-title {
+  font-size: 0.82rem !important;
+  font-weight: 600;
+  color: var(--text-main) !important;
+  margin-top: 0.3rem;
+}
+
+.h-item-desc {
+  font-size: 0.78rem !important;
+  color: var(--text-muted) !important;
+  margin-top: 0.15rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.h-item-report {
+  margin-top: 0.45rem;
 }
 
 .h-item-info {

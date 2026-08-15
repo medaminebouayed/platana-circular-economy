@@ -18,7 +18,19 @@ if str(repo_root) not in sys.path:
 
 from models.pricing.features import FeatureEngineer
 from models.pricing.model import PricingModel
-from models.artifacts import create_version_dir, promote_version, write_manifest
+from models.artifacts import (create_version_dir, promote_version, read_active_manifest,
+                              write_manifest)
+
+
+def should_promote(candidate_metrics, current_manifest, policy, min_mape_improvement):
+    if policy == "never":
+        return False
+    if policy == "always" or not current_manifest:
+        return True
+    current_mape = current_manifest.get("metrics", {}).get("mape")
+    if current_mape is None:
+        return True
+    return float(candidate_metrics["mape"]) <= float(current_mape) - min_mape_improvement
 
 def main():
     parser = argparse.ArgumentParser()
@@ -26,6 +38,9 @@ def main():
     parser.add_argument("--data", required=True, help="CSV avec les données")
     parser.add_argument("--output-dir", default="models/pricing/checkpoints",
                         help="Directory containing immutable version folders and latest.json.")
+    parser.add_argument("--promotion-policy", choices=["always", "if-better", "never"], default="always")
+    parser.add_argument("--min-mape-improvement", type=float, default=0.05,
+                        help="Absolute MAPE-point improvement needed by if-better (default: 0.05).")
     args = parser.parse_args()
     
     with open(args.config, 'r') as f:
@@ -101,11 +116,19 @@ def main():
             "feature_names": feature_cols,
             "artifacts": {"model": "model.pkl", "feature_engineer": "feature_engineer.pkl"},
         })
-        promote_version(
-            artifact_root, version_id,
-            {"model": "model.pkl", "feature_engineer": "feature_engineer.pkl"},
+        active_manifest = read_active_manifest(artifact_root)
+        promoted = should_promote(
+            metrics, active_manifest, args.promotion_policy, args.min_mape_improvement
         )
+        if promoted:
+            promote_version(
+                artifact_root, version_id,
+                {"model": "model.pkl", "feature_engineer": "feature_engineer.pkl"},
+            )
+        mlflow.set_tag("promotion_status", "promoted" if promoted else "candidate_not_promoted")
+        mlflow.set_tag("promotion_policy", args.promotion_policy)
         print(f"[OK] Pricing model version saved: {version_dir}")
+        print("[OK] Active pricing pointer updated." if promoted else "[INFO] Candidate retained; active pricing model unchanged.")
         mlflow.log_artifact(str(model_output), artifact_path="model")
         mlflow.log_artifact(str(engineer_output), artifact_path="model")
         mlflow.log_artifact(str(manifest_path), artifact_path="model")

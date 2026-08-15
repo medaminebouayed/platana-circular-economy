@@ -4,13 +4,15 @@ Responsible for: ML-based market price prediction for used electronics.
 Port: 8002
 """
 import os
+import hmac
 import logging
 import hashlib
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Iterable
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from dotenv import load_dotenv
 import redis.asyncio as redis
 from redis.exceptions import RedisError
@@ -29,12 +31,48 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | pr
 logger = logging.getLogger(__name__)
 
 # ── App ─────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global model, engineer, redis_client, cache_fingerprint, active_model_version
+    model_path, engineer_path, active_model_version = _resolve_model_paths()
+    try:
+        import joblib
+        if model_path.exists() and engineer_path.exists():
+            from models.pricing.model import PricingModel
+            model = PricingModel.load(model_path)
+            engineer = joblib.load(engineer_path)
+            logger.info("Pricing model loaded from version %s: %s", active_model_version, model_path)
+        else:
+            logger.error("Pricing model not found at %s or %s. Service will answer 503.", model_path, engineer_path)
+    except Exception as e:
+        logger.error("Failed to load pricing model: %s. Service will answer 503.", e)
+
+    feature_source = Path(__file__).resolve().parents[2] / "models" / "pricing" / "features.py"
+    cache_fingerprint = _hash_files([model_path, engineer_path, feature_source])
+    logger.info("Pricing cache fingerprint: %s", cache_fingerprint)
+
+    try:
+        candidate = redis.from_url(REDIS_URL, encoding="utf-8", decode_responses=True,
+                                   socket_connect_timeout=1, socket_timeout=1)
+        await candidate.ping()
+        redis_client = candidate
+        logger.info("Redis pricing cache connected: %s", REDIS_URL)
+    except RedisError as exc:
+        logger.warning("Redis unavailable; pricing cache disabled: %s", exc)
+
+    yield
+
+    if redis_client is not None:
+        await redis_client.aclose()
+
+
 app = FastAPI(
     title="Platana Pricing Service",
     description="ML-based market price prediction for used electronics.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ── Model Loading ───────────────────────────────────────────────
@@ -46,12 +84,13 @@ CONFIGURED_ENGINEER_PATH = os.getenv("PRICING_FEATURE_ENGINEER_PATH")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CACHE_TTL_SECONDS = int(os.getenv("PRICING_CACHE_TTL_SECONDS", "3600"))
 CACHE_SCHEMA_VERSION = os.getenv("PRICING_CACHE_SCHEMA_VERSION", "v1")
+RELOAD_TOKEN = os.getenv("TRAINING_SERVICE_TOKEN", "")
 
 model = None
 engineer = None
 redis_client: redis.Redis | None = None
-cache_fingerprint = "simulation"
-active_model_version = "simulation"
+cache_fingerprint = "not_loaded"
+active_model_version = "not_loaded"
 
 
 def _resolve_model_paths() -> tuple[Path, Path, str]:
@@ -117,41 +156,6 @@ async def _cache_prediction(key: str, prediction: PricingResponse) -> None:
     except RedisError as exc:
         logger.warning("Redis cache write failed; continuing without cache: %s", exc)
 
-@app.on_event("startup")
-async def startup():
-    global model, engineer, redis_client, cache_fingerprint, active_model_version
-    model_path, engineer_path, active_model_version = _resolve_model_paths()
-    try:
-        import joblib
-        if model_path.exists() and engineer_path.exists():
-            from models.pricing.model import PricingModel
-            model = PricingModel.load(model_path)
-            engineer = joblib.load(engineer_path)
-            logger.info("Pricing model loaded from version %s: %s", active_model_version, model_path)
-        else:
-            logger.warning("Pricing model not found. Running in simulation mode.")
-    except Exception as e:
-        logger.warning("Failed to load pricing model: %s. Simulation mode active.", e)
-
-    feature_source = Path(__file__).resolve().parents[2] / "models" / "pricing" / "features.py"
-    cache_fingerprint = _hash_files([model_path, engineer_path, feature_source])
-    logger.info("Pricing cache fingerprint: %s", cache_fingerprint)
-
-    try:
-        candidate = redis.from_url(REDIS_URL, encoding="utf-8", decode_responses=True,
-                                   socket_connect_timeout=1, socket_timeout=1)
-        await candidate.ping()
-        redis_client = candidate
-        logger.info("Redis pricing cache connected: %s", REDIS_URL)
-    except RedisError as exc:
-        logger.warning("Redis unavailable; pricing cache disabled: %s", exc)
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    if redis_client is not None:
-        await redis_client.aclose()
-
 # ── Health Check ─────────────────────────────────────────────────
 @app.get("/health", tags=["health"])
 async def health():
@@ -164,32 +168,48 @@ async def health():
         "cache_fingerprint": cache_fingerprint,
     }
 
-# ── Grade-to-ratio mapping (simulation fallback) ─────────────────
-_GRADE_RATIOS = {'A': 0.80, 'A+': 0.90, 'B': 0.65, 'C': 0.50, 'D': 0.32}
+@app.post("/internal/reload", tags=["internal"])
+async def reload_model(x_training_service_token: str | None = Header(default=None)):
+    """Hot-reload the pricing model + feature engineer after a promotion."""
+    if not RELOAD_TOKEN or not x_training_service_token or not hmac.compare_digest(x_training_service_token, RELOAD_TOKEN):
+        raise HTTPException(status_code=403, detail="Unauthorized reload request")
+
+    global model, engineer, cache_fingerprint, active_model_version
+    model_path, engineer_path, active_model_version = _resolve_model_paths()
+    try:
+        import joblib
+        from models.pricing.model import PricingModel
+        model = PricingModel.load(model_path)
+        engineer = joblib.load(engineer_path)
+        feature_source = Path(__file__).resolve().parents[2] / "models" / "pricing" / "features.py"
+        cache_fingerprint = _hash_files([model_path, engineer_path, feature_source])
+        logger.info("Pricing model hot-reloaded from version %s: %s", active_model_version, model_path)
+    except Exception as e:
+        model = None
+        engineer = None
+        cache_fingerprint = "not_loaded"
+        logger.error("Failed to reload pricing model %s: %s. Service will answer 503.", model_path, e)
+        raise HTTPException(status_code=500, detail=f"Pricing model reload failed: {e}")
+
+    return {"status": "ok", "model_loaded": model is not None, "model_version": active_model_version}
 
 # ── Endpoints ───────────────────────────────────────────────────
 @app.post("/predict", response_model=PricingResponse, tags=["pricing"])
 async def predict_price(request: PricingRequest):
     """Predict the resale market price for a product based on grade, defects, and characteristics."""
 
+    # No mock/simulation fallback: fail loudly when the model is not loaded.
+    if model is None or engineer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Pricing model is not loaded. Contact the admin or trigger a model reload.",
+        )
+
     cache_key = build_pricing_cache_key(request, cache_fingerprint)
     cached_prediction = await _get_cached_prediction(cache_key)
     if cached_prediction is not None:
         logger.info("Pricing cache hit: fingerprint=%s", cache_fingerprint)
         return cached_prediction
-
-    # Simulation fallback
-    if model is None or engineer is None:
-        ratio = _GRADE_RATIOS.get(request.grade, 0.5)
-        price = round(request.original_price * ratio, 2)
-        logger.info("Simulation mode: grade=%s, original=%.2f, predicted=%.2f", request.grade, request.original_price, price)
-        prediction = PricingResponse(
-            predicted_price=price,
-            confidence_interval=(round(price * 0.9, 2), round(price * 1.1, 2)),
-            price_ratio=round(price / request.original_price, 2) if request.original_price else 0.0
-        )
-        await _cache_prediction(cache_key, prediction)
-        return prediction
 
     try:
         import pandas as pd

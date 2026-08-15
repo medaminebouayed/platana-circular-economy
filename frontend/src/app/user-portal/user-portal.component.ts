@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { ApiService } from '../services/api.service';
+import { ApiService, CatalogModel } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
+import { TranslationService } from '../services/translation.service';
+import { SelectOption } from '../searchable-select/searchable-select.component';
 
 type SubmitStep = 'form' | 'processing' | 'done' | 'error';
 
@@ -31,12 +33,18 @@ export class UserPortalComponent implements OnInit {
   processingSteps: { label: string; status: 'pending' | 'running' | 'done' }[] = [];
 
   categories = ['Smartphone', 'Ordinateur portable', 'Tablette', 'TV', 'Casque Audio', 'Console de jeux', 'Aspirateur', 'Autre'];
+  brandOptions: SelectOption[] = [];
+  modelOptions: SelectOption[] = [];
+  brandLoading = false;
+  modelLoading = false;
+  catalogError = '';
 
   activeTab: 'submit' | 'history' = 'submit';
   userProducts: any[] = [];
   isLoadingHistory = false;
+  reportLoadingId: string | null = null;
 
-  constructor(private api: ApiService, public authService: AuthService) {}
+  constructor(private api: ApiService, public authService: AuthService, private translation: TranslationService) {}
 
   ngOnInit() {
     this.loadUserProducts();
@@ -53,6 +61,85 @@ export class UserPortalComponent implements OnInit {
       },
       error: () => this.isLoadingHistory = false
     });
+  }
+
+  onBrandOpen() {
+    this.loadBrands(this.form.brand || '');
+  }
+
+  onBrandInput(query: string) {
+    this.catalogError = '';
+    this.form.brand = query;
+    this.modelOptions = [];
+    this.form.model = '';
+    this.loadBrands(query);
+  }
+
+  onBrandSelected(option: SelectOption) {
+    this.form.brand = option.value || option.label;
+    this.catalogError = '';
+    this.form.model = '';
+    this.modelOptions = [];
+    this.loadModels('');
+  }
+
+  loadBrands(query: string) {
+    this.brandLoading = true;
+    this.api.searchCatalogBrands((query || '').trim()).subscribe({
+      next: response => {
+        this.brandOptions = response.items.map(b => ({ label: b, value: b }));
+        this.brandLoading = false;
+      },
+      error: () => {
+        this.brandLoading = false;
+        this.catalogError = this.translation.t('portal.catalogUnavailable');
+      }
+    });
+  }
+
+  onModelOpen() {
+    if (!this.form.brand.trim()) return;
+    this.loadModels(this.form.model || '');
+  }
+
+  onModelInput(query: string) {
+    if (!this.form.brand.trim()) return;
+    this.form.model = query;
+    this.loadModels(query);
+  }
+
+  onModelSelected(option: SelectOption) {
+    this.selectModelOption(option);
+  }
+
+  loadModels(query: string) {
+    this.modelLoading = true;
+    this.api.searchCatalogModels(this.form.brand, (query || '').trim()).subscribe({
+      next: response => {
+        this.modelOptions = response.items.map(item => ({
+          label: item.model,
+          subLabel: `${item.category} · ${item.original_price} €`,
+          value: item.model,
+          data: item as unknown as Record<string, unknown>,
+        }));
+        this.modelLoading = false;
+        if (this.modelOptions.length === 1 && !query.trim()) {
+          this.selectModelOption(this.modelOptions[0]);
+        }
+      },
+      error: () => {
+        this.modelLoading = false;
+        this.catalogError = this.translation.t('portal.catalogModelsError');
+      }
+    });
+  }
+
+  selectModelOption(option: SelectOption) {
+    this.form.model = option.value || option.label;
+    const catalog = option.data as CatalogModel | undefined;
+    if (catalog?.original_price) {
+      this.form.originalPrice = catalog.original_price;
+    }
   }
 
   onDragOver(event: DragEvent) { event.preventDefault(); this.dragOver = true; }
@@ -89,11 +176,11 @@ export class UserPortalComponent implements OnInit {
 
     this.currentStep = 'processing';
     this.processingSteps = [
-      { label: 'Upload des images vers le serveur', status: 'running' },
-      { label: 'Analyse visuelle IA (Vision CV)', status: 'pending' },
-      { label: 'Estimation du prix de revente (ML)', status: 'pending' },
-      { label: 'Génération de la fiche produit (GenAI)', status: 'pending' },
-      { label: 'Envoi à l\'équipe de validation', status: 'pending' },
+      { label: this.translation.t('portal.stepUpload'), status: 'running' },
+      { label: this.translation.t('portal.stepVision'), status: 'pending' },
+      { label: this.translation.t('portal.stepPricing'), status: 'pending' },
+      { label: this.translation.t('portal.stepGenAI'), status: 'pending' },
+      { label: this.translation.t('portal.stepValidation'), status: 'pending' },
     ];
 
     this.api.uploadAndEvaluate({
@@ -113,7 +200,7 @@ export class UserPortalComponent implements OnInit {
       },
       error: (err) => {
         this.processingSteps.forEach(s => s.status = 'done');
-        this.errorMessage = err?.error?.detail || 'Le serveur est injoignable ou une erreur inattendue est survenue.';
+        this.errorMessage = err?.error?.detail || this.translation.t('portal.serverError');
         this.currentStep = 'error';
         console.error('Erreur API:', err);
       }
@@ -137,10 +224,59 @@ export class UserPortalComponent implements OnInit {
 
   getDecisionLabel(decision: string): string {
     const map: Record<string, string> = {
-      RESALE_DIRECT: '✅ Revente directe recommandée',
-      RECONDITION: '🔧 Reconditionnement requis',
-      RECYCLE: '♻️ Recyclage recommandé',
+      RESALE_DIRECT: this.translation.t('portal.dec.RESALE_DIRECT'),
+      RECONDITION: this.translation.t('portal.dec.RECONDITION'),
+      RECYCLE: this.translation.t('portal.dec.RECYCLE'),
     };
     return map[decision] || decision;
+  }
+
+  getStatusLabel(status: string): string {
+    const map: Record<string, string> = {
+      PENDING_EVALUATION: this.translation.t('dashboard.status.PENDING_EVALUATION'),
+      PENDING_ADMIN_REVIEW: this.translation.t('dashboard.status.PENDING_ADMIN_REVIEW'),
+      REVIEW_READY: this.translation.t('dashboard.status.REVIEW_READY'),
+      REVIEWED: this.translation.t('dashboard.status.REVIEWED'),
+      PUBLISHED: this.translation.t('dashboard.status.PUBLISHED'),
+      REJECTED: this.translation.t('dashboard.status.REJECTED'),
+      AI_ERROR: this.translation.t('dashboard.status.AI_ERROR'),
+      PUBLISH_ERROR: this.translation.t('dashboard.status.PUBLISH_ERROR'),
+    };
+    return map[status] || status;
+  }
+
+  getEffectiveTitle(product: any): string {
+    return product.admin_review?.title || product.ai_predictions?.title || '';
+  }
+
+  getEffectiveDescription(product: any): string {
+    return product.admin_review?.description || product.ai_predictions?.description || '';
+  }
+
+  canDownloadReport(product: any): boolean {
+    if (product.status === 'AI_ERROR') return false;
+    return !!(product.report_path || product.ai_predictions || product.admin_review);
+  }
+
+  downloadReport(product: any): void {
+    if (this.reportLoadingId) return;
+    this.reportLoadingId = product.id;
+    this.api.getProductReport(product.id).subscribe({
+      next: (blob) => {
+        this.reportLoadingId = null;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `platana_report_${product.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.reportLoadingId = null;
+        alert(this.translation.t('portal.reportError'));
+      }
+    });
   }
 }

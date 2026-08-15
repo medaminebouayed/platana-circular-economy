@@ -135,6 +135,37 @@ services:
       timeout: 10s
       retries: 3
 
+  # Internal training worker. No host port: only main-service can create jobs.
+  training-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.training
+    container_name: platana-training
+    restart: unless-stopped
+    shm_size: 2g
+    volumes:
+      - ./models/cv/checkpoints:/app/models/cv/checkpoints
+      - ./models/pricing/checkpoints:/app/models/pricing/checkpoints
+      - ./data/processed:/app/data/processed
+      - uploads-data:/app/data/uploads:ro
+    env_file:
+      - .env
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - MLFLOW_TRACKING_URI=http://mlflow:5000/mlflow
+      - CV_SERVICE_URL=http://cv-service:8001
+      - PRICING_SERVICE_URL=http://pricing-service:8002
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # ── Orchestrator ─────────────────────────────────────────────
   orchestrator:
     build:
@@ -175,11 +206,13 @@ services:
     # PAS DE PORTS ICI : Traefik va s'occuper de l'exposer
     volumes:
       - uploads-data:/app/data/uploads
+      - ./data/reports:/app/data/reports
     env_file:
       - .env
     environment:
       - MONGO_URL=mongodb://mongodb:27017
       - ORCHESTRATOR_URL=http://orchestrator:8000
+      - TRAINING_SERVICE_URL=http://training-service:8010
     extra_hosts :
      - "host.docker.internal:host-gateway"
     depends_on:

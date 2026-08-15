@@ -3,14 +3,16 @@ Platana CV Service — Production-ready FastAPI microservice.
 Responsible for: Visual grading of products from images.
 Port: 8001
 """
+import hmac
 import os
 import time
 import uuid
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -28,12 +30,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | cv
 logger = logging.getLogger(__name__)
 
 # ── App ─────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _load_grader()
+    yield
+
+
 app = FastAPI(
     title="Platana CV Service",
     description="AI-powered visual grading service for used electronics.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 DEFAULT_ALLOWED_ORIGINS = [
@@ -62,8 +71,9 @@ app.add_middleware(
 CHECKPOINT_DIR = Path(__file__).resolve().parents[2] / "models" / "cv" / "checkpoints"
 LEGACY_MODEL_PATH = CHECKPOINT_DIR / "best_multitask_model.onnx"
 CONFIGURED_MODEL_PATH = os.getenv("CV_MODEL_PATH")
+RELOAD_TOKEN = os.getenv("TRAINING_SERVICE_TOKEN", "")
 grader = None
-active_model_version = "simulation"
+active_model_version = "not_loaded"
 
 
 def _resolve_model_path() -> tuple[Path, str]:
@@ -72,8 +82,8 @@ def _resolve_model_path() -> tuple[Path, str]:
     model_path, version_id = resolve_latest_artifact(CHECKPOINT_DIR, "model.onnx")
     return (model_path, version_id) if model_path else (LEGACY_MODEL_PATH, "legacy")
 
-@app.on_event("startup")
-async def startup():
+
+def _load_grader() -> None:
     global grader, active_model_version
     model_path, active_model_version = _resolve_model_path()
     if model_path.exists():
@@ -82,15 +92,25 @@ async def startup():
             grader = MultiViewGrader(str(model_path))
             logger.info("CV model loaded from version %s: %s", active_model_version, model_path)
         except Exception as e:
-            logger.warning("Failed to load CV model: %s. Running in simulation mode.", e)
+            grader = None
+            logger.error("Failed to load CV model %s: %s", model_path, e)
     else:
-        logger.warning("CV model not found at %s. Running in simulation mode.", model_path)
+        grader = None
+        logger.error("CV model not found at %s", model_path)
 
 # ── Health Check ─────────────────────────────────────────────────
 @app.get("/health", tags=["health"])
 async def health():
     return {"status": "ok", "service": "cv_service", "model_loaded": grader is not None,
             "model_version": active_model_version}
+
+@app.post("/internal/reload", tags=["internal"])
+async def reload_model(x_training_service_token: str | None = Header(default=None)):
+    """Hot-reload ONNX model after continuous training promotes a new version."""
+    if not RELOAD_TOKEN or not x_training_service_token or not hmac.compare_digest(x_training_service_token, RELOAD_TOKEN):
+        raise HTTPException(status_code=403, detail="Unauthorized reload request")
+    _load_grader()
+    return {"status": "ok", "model_loaded": grader is not None, "model_version": active_model_version}
 
 # ── Endpoints ───────────────────────────────────────────────────
 @app.post("/grade", response_model=GradingResponse, tags=["grading"])
@@ -101,10 +121,12 @@ async def grade_product(files: List[UploadFile] = File(...)):
     if not 1 <= len(files) <= 5:
         raise HTTPException(status_code=400, detail="1 to 5 images are required.")
 
-    # Simulation mode when model is not available
+    # No mock/simulation fallback: fail loudly when the model is not loaded.
     if grader is None:
-        logger.info("Simulation mode: returning mock grading result.")
-        return GradingResponse(grade="B", grade_confidence=0.85, detected_defects=["cosmetic_scratch"])
+        raise HTTPException(
+            status_code=503,
+            detail="CV model is not loaded. Contact the admin or trigger a model reload.",
+        )
 
     # Save files temporarily with unique names
     temp_dir = Path("temp_uploads")

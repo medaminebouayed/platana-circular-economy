@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 
 import { AuthService } from '../services/auth.service';
+import { ApiService } from '../services/api.service';
+import { TranslationService } from '../services/translation.service';
 
 @Component({
   selector: 'app-grading',
@@ -13,6 +15,7 @@ export class GradingComponent {
   productId = '';
   isLoading = false;
   result: any | null = null;
+  error = '';
   dragOver = false;
 
   // Fields for immediate pricing estimation
@@ -24,12 +27,12 @@ export class GradingComponent {
   isPricingLoading = false;
 
   defectLabels: { [key: string]: string } = {
-    scratch: 'Rayure',
-    dent: 'Enfoncement / Choc',
-    crack: 'Fissure',
-    discoloration: 'Décoloration',
-    missing_part: 'Pièce manquante',
-    water_damage: 'Dégât des eaux'
+    scratch: this.translation.t('grading.defect.scratch'),
+    dent: this.translation.t('grading.defect.dent'),
+    crack: this.translation.t('grading.defect.crack'),
+    discoloration: this.translation.t('grading.defect.discoloration'),
+    missing_part: this.translation.t('grading.defect.missing_part'),
+    water_damage: this.translation.t('grading.defect.water_damage')
   };
 
   // Admin Override
@@ -38,8 +41,14 @@ export class GradingComponent {
   adminApproved = false;
 
   constructor(
-    public authService: AuthService
+    public authService: AuthService,
+    private api: ApiService,
+    public translation: TranslationService
   ) {}
+
+  tWith(key: string, params?: Record<string, string | number>): string {
+    return this.translation.tWith(key, params || {});
+  }
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -88,15 +97,75 @@ export class GradingComponent {
     this.isLoading = true;
     this.result = null;
     this.pricingResult = null;
+    this.error = '';
 
-    // Deprecated feature, kept for reference
-    console.log("Analyzing...");
-    this.isLoading = false;
+    this.api.gradeImages(this.uploadedFiles).subscribe({
+      next: (res) => {
+        this.isLoading = false;
+        const grade = res.grade || 'C';
+        const conf = Math.min(0.98, Math.max(0.5, Number(res.grade_confidence ?? 1)));
+        const rest = Math.round((1 - conf) * 1000) / 1000 / 3;
+        this.result = {
+          grade,
+          grade_confidence: conf,
+          num_views_used: this.uploadedFiles.length,
+          processing_time_ms: 0,
+          grade_probabilities: { A: rest, B: rest, C: rest, D: rest, [grade]: conf },
+          detected_defects: (res.detected_defects || [])
+            .filter((d: string) => d && d !== 'no_defect')
+            .map((d: string) => ({
+            type: d,
+            probability: 1,
+            label: this.defectLabel(d),
+          })),
+          product_id: this.productId || undefined,
+        };
+        this.isValidationMode = true;
+        this.adminOverriddenGrade = grade;
+        this.fetchPricing(grade);
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.error = err?.error?.detail || this.translation.t('grading.analysisError');
+      }
+    });
   }
 
   fetchPricing(grade: string) {
-    // Deprecated
-    this.isPricingLoading = false;
+    if (!this.brand || !this.model) return;
+    this.isPricingLoading = true;
+    this.pricingResult = null;
+    const defects = this.result?.detected_defects?.map((d: any) => d.type) || [];
+    this.api.predictPrice({
+      grade,
+      category: this.category,
+      brand: this.brand,
+      model: this.model,
+      original_price: this.originalPrice || 999,
+      age_days: 365,
+      repair_cost: 0,
+      defects
+    }).subscribe({
+      next: (res) => {
+        this.isPricingLoading = false;
+        this.pricingResult = {
+          predicted_price: res.predicted_price,
+          price_ratio: res.price_ratio || 0,
+          confidence_interval: res.confidence_interval || [0, 0],
+          explanation: this.translation.t('grading.pricingExplanation'),
+        };
+      },
+      error: () => {
+        this.isPricingLoading = false;
+        this.pricingResult = null;
+      }
+    });
+  }
+
+  defectLabel(defectId: string): string {
+    const key = `grading.defect.${defectId}`;
+    const translated = this.translation.t(key);
+    return translated !== key ? translated : this.translation.t(`grading.defect.${defectId.split('_')[0]}`) || defectId;
   }
 
   onAdminGradeChange() {
@@ -139,10 +208,10 @@ export class GradingComponent {
 
   getGradeLabel(grade: string): string {
     const map: { [key: string]: string } = {
-      'A': 'Excellent État — Revente directe',
-      'B': 'Très Bon État — Revente possible',
-      'C': 'État Correct — Reconditionnement conseillé',
-      'D': 'Mauvais État — Recyclage recommandé'
+      'A': this.translation.t('grading.gradeDesc.A'),
+      'B': this.translation.t('grading.gradeDesc.B'),
+      'C': this.translation.t('grading.gradeDesc.C'),
+      'D': this.translation.t('grading.gradeDesc.D')
     };
     return map[grade] || '';
   }

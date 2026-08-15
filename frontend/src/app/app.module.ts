@@ -16,7 +16,10 @@ import { AdminLoginComponent } from './admin-login/admin-login.component';
 import { UserSettingsComponent } from './user-settings/user-settings.component';
 import { AdminSettingsComponent } from './admin-settings/admin-settings.component';
 import { UserRegisterComponent } from './user-register/user-register.component';
+import { SearchableSelectComponent } from './searchable-select/searchable-select.component';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
+import { TranslatePipe } from './pipes/translate.pipe';
+import { ProductImageComponent } from './product-image/product-image.component';
 
 @NgModule({
   declarations: [
@@ -31,7 +34,10 @@ import { AuthInterceptor } from './interceptors/auth.interceptor';
     AdminLoginComponent,
     UserSettingsComponent,
     AdminSettingsComponent,
-    UserRegisterComponent
+    UserRegisterComponent,
+    SearchableSelectComponent,
+    TranslatePipe,
+    ProductImageComponent
   ],
   imports: [
     BrowserModule,

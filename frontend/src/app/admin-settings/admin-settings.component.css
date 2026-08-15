@@ -76,3 +76,28 @@
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 768px) { .settings-grid { grid-template-columns: 1fr; } .span-2 { grid-column: 1; } }
+
+/* ── Drift alert banner ─────────────────────────────────────── */
+.drift-alert-banner { display: flex; align-items: center; gap: 1rem; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.35); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; animation: fadeIn 0.3s ease; }
+.drift-alert-icon { font-size: 1.5rem; }
+.drift-alert-body { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; color: var(--text-main); font-size: 0.88rem; }
+.drift-alert-body strong { color: #dc2626; }
+.drift-alert-btn { flex-shrink: 0; }
+.drift-alert-ok { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.88rem; font-weight: 600; }
+
+/* ── Continuous learning ────────────────────────────────────── */
+.training-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 0.5rem; }
+.training-grid .btn { justify-content: center; }
+.training-jobs { margin-top: 1.5rem; }
+.training-jobs-title { font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.75rem; }
+.training-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.training-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border-color); }
+.training-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: top; }
+.job-status { font-weight: 700; color: var(--text-muted); }
+.job-status.status-active { color: #f59e0b; }
+.job-status.status-failed { color: #dc2626; }
+.job-details summary { cursor: pointer; color: var(--primary); font-weight: 600; }
+.job-log { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.72rem; max-height: 180px; overflow: auto; white-space: pre-wrap; color: var(--text-muted); margin-top: 0.4rem; }
+.training-empty { font-size: 0.82rem; color: var(--text-muted); margin-top: 1rem; }
+
+@media (max-width: 768px) { .training-grid { grid-template-columns: 1fr; } .drift-alert-banner { flex-direction: column; align-items: flex-start; } }

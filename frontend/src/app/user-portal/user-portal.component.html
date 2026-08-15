@@ -4,12 +4,12 @@
   <div class="portal-header-wrapper">
     <div class="portal-header-content">
       <div class="header-text">
-        <h1>Mon Espace Vendeur</h1>
-        <p>Estimez et revendez vos équipements électroniques en quelques clics grâce à notre IA.</p>
+        <h1>{{ 'portal.mySellerSpace' | translate }}</h1>
+        <p>{{ 'portal.intro' | translate }}</p>
       </div>
       <div class="header-tabs">
-        <button class="tab-btn" [class.active]="activeTab === 'submit'" (click)="activeTab = 'submit'">Nouveau Dépôt</button>
-        <button class="tab-btn" [class.active]="activeTab === 'history'" (click)="activeTab = 'history'">Mon Historique</button>
+        <button class="tab-btn" [class.active]="activeTab === 'submit'" (click)="activeTab = 'submit'">{{ 'portal.newDeposit' | translate }}</button>
+        <button class="tab-btn" [class.active]="activeTab === 'history'" (click)="activeTab = 'history'">{{ 'portal.history' | translate }}</button>
       </div>
     </div>
   </div>
@@ -21,37 +21,37 @@
 
       <!-- LEFT: Hero / Info -->
       <div class="portal-hero">
-        <div class="hero-badge">🌿 Économie Circulaire</div>
-        <h1 class="hero-title">Donnez une seconde vie<br>à votre appareil</h1>
-        <p class="hero-sub">Soumettez votre produit en quelques secondes. Notre IA l'évalue automatiquement et vous propose le meilleur prix de revente.</p>
+        <div class="hero-badge">🌿 {{ 'portal.ecoBadge' | translate }}</div>
+        <h1 class="hero-title">{{ 'portal.heroTitle1' | translate }}<br>{{ 'portal.heroTitle2' | translate }}</h1>
+        <p class="hero-sub">{{ 'portal.heroSub' | translate }}</p>
 
         <div class="hero-steps">
           <div class="hero-step">
             <div class="step-number">1</div>
             <div class="step-text">
-              <strong>Renseignez votre produit</strong>
-              <span>Marque, modèle, année et photos</span>
+              <strong>{{ 'portal.step1Title' | translate }}</strong>
+              <span>{{ 'portal.step1Desc' | translate }}</span>
             </div>
           </div>
           <div class="hero-step">
             <div class="step-number">2</div>
             <div class="step-text">
-              <strong>Analyse IA instantanée</strong>
-              <span>Notre moteur Dify évalue l'état et le prix</span>
+              <strong>{{ 'portal.step2Title' | translate }}</strong>
+              <span>{{ 'portal.step2Desc' | translate }}</span>
             </div>
           </div>
           <div class="hero-step">
             <div class="step-number">3</div>
             <div class="step-text">
-              <strong>Validation & Publication</strong>
-              <span>L'équipe Platana valide et publie votre annonce</span>
+              <strong>{{ 'portal.step3Title' | translate }}</strong>
+              <span>{{ 'portal.step3Desc' | translate }}</span>
             </div>
           </div>
         </div>
 
         <div class="hero-eco-badge">
           <span>♻️</span>
-          <span>Chaque appareil reconditionné évite <strong>~70kg de CO₂</strong></span>
+          <span>{{ 'portal.ecoNote1' | translate }} <strong>{{ 'portal.ecoNote2' | translate }}</strong></span>
         </div>
       </div>
 
@@ -59,35 +59,57 @@
       <div class="portal-form-wrap">
         <div class="platana-card portal-form-card">
           <div class="platana-card-header">
-            <span class="platana-card-title">📦 Déposer mon produit</span>
+            <span class="platana-card-title">{{ 'portal.depositProduct' | translate }}</span>
           </div>
 
           <!-- Product Info -->
           <div class="grid-2" style="gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group">
-              <label class="form-label">Marque *</label>
-              <input type="text" [(ngModel)]="form.brand" class="form-input" placeholder="Apple, Samsung...">
+              <label class="form-label">{{ 'portal.brand' | translate }}</label>
+              <app-searchable-select
+                [value]="form.brand"
+                [placeholder]="'portal.brandPlaceholder' | translate"
+                [options]="brandOptions"
+                [loading]="brandLoading"
+                [emptyMessage]="'portal.catalogNoResults' | translate"
+                [loadingMessage]="'portal.catalogLoading' | translate"
+                (valueChange)="onBrandInput($event)"
+                (selected)="onBrandSelected($event)"
+                (opened)="onBrandOpen()">
+              </app-searchable-select>
             </div>
             <div class="form-group">
-              <label class="form-label">Modèle *</label>
-              <input type="text" [(ngModel)]="form.model" class="form-input" placeholder="iPhone 13, Galaxy S22...">
+              <label class="form-label">{{ 'portal.model' | translate }}</label>
+              <app-searchable-select
+                [value]="form.model"
+                [placeholder]="'portal.modelPlaceholder' | translate"
+                [options]="modelOptions"
+                [disabled]="!form.brand"
+                [loading]="modelLoading"
+                [emptyMessage]="'portal.catalogNoResults' | translate"
+                [loadingMessage]="'portal.catalogLoading' | translate"
+                (valueChange)="onModelInput($event)"
+                (selected)="onModelSelected($event)"
+                (opened)="onModelOpen()">
+              </app-searchable-select>
             </div>
           </div>
+          <p *ngIf="catalogError" class="form-hint" style="color: #dc2626; margin-top: -0.5rem;">{{ catalogError }}</p>
 
           <div class="grid-2" style="gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group">
-              <label class="form-label">Année d'achat</label>
+              <label class="form-label">{{ 'portal.purchaseYear' | translate }}</label>
               <input type="number" [(ngModel)]="form.year" class="form-input" min="2010" [max]="2025">
             </div>
             <div class="form-group">
-              <label class="form-label">Prix d'achat d'origine (€) *</label>
+              <label class="form-label">{{ 'portal.originalPrice' | translate }}</label>
               <input type="number" [(ngModel)]="form.originalPrice" class="form-input" min="0" step="10" placeholder="999">
             </div>
           </div>
 
           <!-- Image Upload Zone -->
           <div class="form-group">
-            <label class="form-label">Photos du produit</label>
+            <label class="form-label">{{ 'portal.photos' | translate }}</label>
             <div class="upload-zone" [class.drag-active]="dragOver" [class.has-files]="uploadedFiles.length > 0"
               (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
               <input #fileInput type="file" multiple accept="image/*" (change)="onFileSelect($event)" style="display:none">
@@ -100,13 +122,13 @@
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                   </svg>
                 </div>
-                <span class="upload-title">Déposer vos photos ici</span>
-                <span class="upload-hint">ou <u>parcourir</u> • JPG, PNG • Max 5 photos</span>
+                <span class="upload-title">{{ 'portal.dropPhotos' | translate }}</span>
+                <span class="upload-hint">{{ 'portal.browse' | translate }} <u>{{ 'portal.browseLink' | translate }}</u> • {{ 'portal.photoHint' | translate }}</span>
               </div>
 
               <div *ngIf="uploadedFiles.length > 0" class="preview-grid-user">
                 <div class="preview-item-user" *ngFor="let url of previewUrls; let i = index">
-                  <img [src]="url" [alt]="'Vue ' + (i+1)">
+                  <img [src]="url" [alt]="('portal.view' | translate) + ' ' + (i+1)">
                   <button class="preview-remove" (click)="removeFile(i)">✕</button>
                 </div>
                 <div class="preview-add-user" *ngIf="uploadedFiles.length < 5" (click)="fileInput.click()">
@@ -120,7 +142,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 2L11 13"></path><path d="M22 2L15 22 11 13 2 9l20-7z"></path>
             </svg>
-            Soumettre pour évaluation IA
+            {{ 'portal.submitForEvaluation' | translate }}
           </button>
         </div>
       </div>
@@ -132,8 +154,8 @@
         <div class="processing-logo">
           <div class="processing-spinner"></div>
         </div>
-        <h2>Analyse IA en cours...</h2>
-        <p>Notre moteur évalue votre produit en temps réel</p>
+        <h2>{{ 'portal.processingTitle' | translate }}</h2>
+        <p>{{ 'portal.processingSub' | translate }}</p>
 
         <div class="processing-steps">
           <div class="proc-step" *ngFor="let step of processingSteps" [class]="'proc-step-' + step.status">
@@ -152,11 +174,11 @@
     <div class="result-screen" *ngIf="currentStep === 'error'">
       <div class="result-success-header" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);">
         <div class="result-checkmark" style="background: #ef4444;">❌</div>
-        <h2 style="color: #ef4444;">Échec de la soumission</h2>
+        <h2 style="color: #ef4444;">{{ 'portal.submissionFailed' | translate }}</h2>
         <p>{{ errorMessage }}</p>
       </div>
       <div class="result-actions">
-        <button class="btn btn-primary" (click)="reset()">Réessayer</button>
+        <button class="btn btn-primary" (click)="reset()">{{ 'portal.retry' | translate }}</button>
       </div>
     </div>
 
@@ -165,9 +187,9 @@
 
       <div class="result-success-header">
         <div class="result-checkmark">✅</div>
-        <h2>Produit soumis avec succès !</h2>
-        <p>Votre produit <strong>{{ form.brand }} {{ form.model }}</strong> a été évalué et envoyé à l'équipe de validation Platana.</p>
-        <div class="result-id-badge" *ngIf="submittedProductId">Référence : {{ submittedProductId }}</div>
+        <h2>{{ 'portal.submissionSuccess' | translate }}</h2>
+        <p>{{ 'portal.yourProduct' | translate }} <strong>{{ form.brand }} {{ form.model }}</strong> {{ 'portal.submissionSuccessText' | translate }}</p>
+        <div class="result-id-badge" *ngIf="submittedProductId">{{ 'portal.reference' | translate }} {{ submittedProductId }}</div>
       </div>
 
       <div class="result-cards-row" *ngIf="evaluationResult">
@@ -175,7 +197,7 @@
         <!-- Grade Card -->
         <div class="result-card" [style.border-top]="'4px solid ' + getGradeColor(evaluationResult.grade)">
           <div class="result-card-icon">📊</div>
-          <div class="result-card-label">Grade Estimé</div>
+          <div class="result-card-label">{{ 'portal.gradeEstimated' | translate }}</div>
           <div class="grade-display" [style.color]="getGradeColor(evaluationResult.grade)">
             {{ evaluationResult.grade }}
           </div>
@@ -184,14 +206,14 @@
         <!-- Price Card -->
         <div class="result-card" style="border-top: 4px solid var(--primary);">
           <div class="result-card-icon">💰</div>
-          <div class="result-card-label">Prix de Revente Estimé</div>
+          <div class="result-card-label">{{ 'portal.estimatedResalePrice' | translate }}</div>
           <div class="price-display">{{ evaluationResult.market_price | number }} €</div>
         </div>
 
         <!-- Decision Card -->
         <div class="result-card" style="border-top: 4px solid var(--accent-blue);">
           <div class="result-card-icon">🔍</div>
-          <div class="result-card-label">Recommandation IA</div>
+          <div class="result-card-label">{{ 'portal.aiRecommendation' | translate }}</div>
           <div class="decision-display">{{ getDecisionLabel(evaluationResult.decision) }}</div>
         </div>
       </div>
@@ -199,8 +221,8 @@
       <!-- AI Generated Title & Description -->
       <div class="platana-card result-desc-card" *ngIf="evaluationResult">
         <div class="platana-card-header">
-          <span class="platana-card-title">📝 Fiche Produit Générée</span>
-          <span class="badge badge-info">En attente validation Admin</span>
+          <span class="platana-card-title">{{ 'portal.generatedSheet' | translate }}</span>
+          <span class="badge badge-info">{{ 'portal.waitingValidation' | translate }}</span>
         </div>
         <h3 class="listing-title-preview">{{ evaluationResult.title }}</h3>
         <p class="listing-desc-preview">{{ evaluationResult.description }}</p>
@@ -209,20 +231,20 @@
       <!-- What's next -->
       <div class="platana-card next-steps-card">
         <div class="platana-card-header">
-          <span class="platana-card-title">📋 Et maintenant ?</span>
+          <span class="platana-card-title">{{ 'portal.whatNext' | translate }}</span>
         </div>
         <div class="next-steps-list">
           <div class="next-step-item next-step-done">
             <div class="next-dot done-dot">✓</div>
-            <span>Votre produit a été évalué par notre IA</span>
+            <span>{{ 'portal.next1' | translate }}</span>
           </div>
           <div class="next-step-item">
             <div class="next-dot pending-dot">2</div>
-            <span>L'équipe de validation Platana examine votre dossier</span>
+            <span>{{ 'portal.next2' | translate }}</span>
           </div>
           <div class="next-step-item">
             <div class="next-dot pending-dot">3</div>
-            <span>Une fois approuvé, votre produit sera publié sur nos marketplaces</span>
+            <span>{{ 'portal.next3' | translate }}</span>
           </div>
         </div>
       </div>
@@ -230,7 +252,7 @@
       <div class="result-actions">
         <button class="btn btn-primary" (click)="reset()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
-          Soumettre un autre produit
+          {{ 'portal.submitAnother' | translate }}
         </button>
       </div>
     </div>
@@ -240,30 +262,38 @@
   <div *ngIf="activeTab === 'history'" class="history-view">
     <div class="platana-card">
       <div class="platana-card-header">
-        <span class="platana-card-title">Historique de mes dépôts</span>
+        <span class="platana-card-title">{{ 'portal.mySubmissions' | translate }}</span>
         <button class="btn btn-secondary btn-sm" (click)="loadUserProducts()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-          Actualiser
+          {{ 'portal.refresh' | translate }}
         </button>
       </div>
       
-      <div class="loading-state" *ngIf="isLoadingHistory">Chargement de votre historique...</div>
+      <div class="loading-state" *ngIf="isLoadingHistory">{{ 'portal.loadingHistory' | translate }}</div>
       
       <div class="empty-state" *ngIf="!isLoadingHistory && userProducts.length === 0">
         <div class="empty-icon">📁</div>
-        <p>Vous n'avez pas encore déposé de produits.</p>
-        <button class="btn btn-primary" (click)="activeTab = 'submit'">Faire un premier dépôt</button>
+        <p>{{ 'portal.noProductsYet' | translate }}</p>
+        <button class="btn btn-primary" (click)="activeTab = 'submit'">{{ 'portal.firstDeposit' | translate }}</button>
       </div>
 
       <div class="history-list" *ngIf="!isLoadingHistory && userProducts.length > 0">
         <div class="history-item" *ngFor="let product of userProducts">
           <div class="h-item-img">
-            <img *ngIf="product.image_paths && product.image_paths.length" src="assets/placeholder.png" alt="Photo">
+            <app-product-image *ngIf="product.image_paths && product.image_paths.length"
+              [productId]="product.id" [index]="0" cssClass="history-thumb">
+            </app-product-image>
             <div *ngIf="!product.image_paths || !product.image_paths.length" class="no-img">📸</div>
           </div>
           <div class="h-item-info">
             <h4>{{ product.brand }} {{ product.model }}</h4>
-            <p>Déposé le : {{ product.created_at | date:'dd/MM/yyyy' }} (Estimation d'achat : {{ product.original_price }}€)</p>
+            <p>{{ 'portal.depositedOn' | translate }} {{ product.created_at | date:'dd/MM/yyyy' }} ({{ 'portal.purchaseEstimate' | translate }} {{ product.original_price }}€)</p>
+            <p *ngIf="getEffectiveTitle(product)" class="h-item-title">{{ getEffectiveTitle(product) }}</p>
+            <p *ngIf="getEffectiveDescription(product)" class="h-item-desc">{{ getEffectiveDescription(product) }}</p>
+            <button *ngIf="canDownloadReport(product)" class="btn btn-secondary btn-sm h-item-report" (click)="downloadReport(product)" [disabled]="reportLoadingId">
+              <span *ngIf="reportLoadingId === product.id" class="btn-spinner"></span>
+              📄 {{ 'portal.downloadReport' | translate }}
+            </button>
           </div>
           <div class="h-item-status">
             <span class="badge" [ngClass]="{
@@ -272,7 +302,7 @@
               'badge-info': product.status === 'REVIEWED',
               'badge-error': product.status === 'AI_ERROR'
             }">
-              {{ product.status }}
+              {{ getStatusLabel(product.status) }}
             </span>
           </div>
         </div>

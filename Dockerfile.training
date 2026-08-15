@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*
+
+COPY api/training_service/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY api/training_service /app/api/training_service
+COPY api/shared /app/api/shared
+COPY models /app/models
+COPY scripts /app/scripts
+COPY configs /app/configs
+
+ENV PYTHONPATH=/app:/app/api
+
+CMD ["uvicorn", "api.training_service.main:app", "--host", "0.0.0.0", "--port", "8010"]

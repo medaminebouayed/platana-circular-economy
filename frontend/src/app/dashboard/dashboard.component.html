@@ -3,13 +3,26 @@
   <!-- ═══ PAGE HEADER ═══ -->
   <div class="page-header">
     <div>
-      <h1 class="page-title">🛡️ Espace Admin — Validation Produits</h1>
-      <p class="page-subtitle">Contrôle humain sur les évaluations IA · Approuver ou rejeter chaque produit avant publication</p>
+      <h1 class="page-title">{{ 'dashboard.title' | translate }}</h1>
+      <p class="page-subtitle">{{ 'dashboard.subtitle' | translate }}</p>
     </div>
     <div style="display:flex;gap:0.75rem;align-items:center;">
-      <button class="btn btn-secondary btn-sm" (click)="loadProducts()" title="Rafraîchir">🔄 Rafraîchir</button>
-      <span class="badge badge-warning" *ngIf="pendingProducts.length > 0">{{ pendingProducts.length }} en attente</span>
+      <button class="btn btn-secondary btn-sm" (click)="loadProducts()" [title]="'dashboard.refresh' | translate">🔄 {{ 'dashboard.refresh' | translate }}</button>
+      <span class="badge badge-warning" *ngIf="pendingProducts.length > 0">{{ pendingProducts.length }} {{ 'dashboard.pendingCount' | translate }}</span>
     </div>
+  </div>
+
+  <!-- ═══ AI DRIFT ALERT BANNER ═══ -->
+  <div class="drift-alert-banner" *ngIf="driftStats?.alert">
+    <div class="drift-alert-icon">⚠️</div>
+    <div class="drift-alert-body">
+      <strong>{{ 'adminSettings.driftBannerTitle' | translate }}</strong>
+      <span>{{ 'adminSettings.driftBannerText' | translate:{ grade: driftStats.grade_changes, price: driftStats.price_drifts, eval: driftStats.evaluations, max: driftStats.max_faults } }}</span>
+    </div>
+    <a class="btn btn-danger drift-alert-btn" routerLink="/settings/admin">{{ 'adminSettings.driftReview' | translate }}</a>
+  </div>
+  <div class="drift-alert-ok" *ngIf="driftStats && !driftStats.alert">
+    {{ 'adminSettings.driftOk' | translate:{ eval: driftStats.evaluations, grade: driftStats.grade_changes } }}
   </div>
 
   <!-- ═══ KPI STRIP ═══ -->
@@ -20,10 +33,69 @@
     </div>
   </div>
 
+  <!-- ═══ ANALYTICS ROW ═══ -->
+  <div class="analytics-row" *ngIf="stats">
+
+    <!-- Decision mix -->
+    <div class="analytics-card">
+      <h3 class="analytics-title">{{ 'dashboard.analytics.decisions' | translate }}</h3>
+      <div class="kpi-strip kpi-strip-sm">
+        <div class="kpi-card" *ngFor="let dkpi of detailKpis">
+          <div class="kpi-value">{{ dkpi.value }}</div>
+          <div class="kpi-label">{{ dkpi.label }}</div>
+        </div>
+      </div>
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <span class="mini-stat-label">{{ 'dashboard.analytics.avgPrice' | translate }}</span>
+          <span class="mini-stat-value">{{ stats.avgPrice | number }} €</span>
+        </div>
+        <div class="mini-stat">
+          <span class="mini-stat-label">{{ 'dashboard.analytics.revenue' | translate }}</span>
+          <span class="mini-stat-value">{{ stats.totalRevenue | number }} €</span>
+        </div>
+        <div class="mini-stat">
+          <span class="mini-stat-label">{{ 'dashboard.analytics.profit' | translate }}</span>
+          <span class="mini-stat-value">{{ stats.totalProfit | number }} €</span>
+        </div>
+        <div class="mini-stat">
+          <span class="mini-stat-label">{{ 'dashboard.analytics.aiCorrections' | translate }}</span>
+          <span class="mini-stat-value">{{ stats.aiGradeCorrections }} / {{ stats.aiPriceCorrections }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grade distribution -->
+    <div class="analytics-card">
+      <h3 class="analytics-title">{{ 'dashboard.analytics.grades' | translate }}</h3>
+      <div class="grade-bars">
+        <div class="grade-bar-row" *ngFor="let entry of gradeDistributionEntries">
+          <span class="grade-bar-letter" [style.color]="getGradeColor(entry.grade)">{{ entry.grade }}</span>
+          <div class="grade-bar-track">
+            <div class="grade-bar-fill" [style.width.%]="entry.shares[1]"
+              [style.background]="getGradeColor(entry.grade)"></div>
+          </div>
+          <span class="grade-bar-count">{{ entry.shares[0] }} ({{ entry.shares[1] }}%)</span>
+        </div>
+      </div>
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <span class="mini-stat-label">{{ 'dashboard.analytics.transportCost' | translate }}</span>
+          <span class="mini-stat-value">{{ stats.totalTransportCost }} €</span>
+        </div>
+        <div class="mini-stat">
+          <span class="mini-stat-label">{{ 'dashboard.analytics.avgDelay' | translate }}</span>
+          <span class="mini-stat-value">{{ stats.avgDelay }}h</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
   <!-- Loading -->
   <div class="loading-state" *ngIf="isLoading">
     <span class="btn-spinner-lg"></span>
-    <p>Chargement des produits depuis MongoDB...</p>
+    <p>{{ 'dashboard.loadingProducts' | translate }}</p>
   </div>
 
   <!-- ═══ MAIN GRID ═══ -->
@@ -32,13 +104,13 @@
     <!-- LEFT: Product Queue -->
     <div class="queue-panel">
       <div class="panel-header">
-        <h2>File de validation</h2>
-        <span class="badge badge-info">{{ allProducts.length }} produit(s)</span>
+        <h2>{{ 'dashboard.validationQueue' | translate }}</h2>
+        <span class="badge badge-info">{{ allProducts.length }} {{ 'dashboard.productsCount' | translate }}</span>
       </div>
 
       <div class="queue-empty" *ngIf="allProducts.length === 0">
         <span>🎉</span>
-        <p>Aucun produit en base de données.<br>Connectez votre backend ou soumettez un produit côté utilisateur.</p>
+        <p>{{ 'dashboard.noProducts' | translate }}<br>{{ 'dashboard.noProductsSub' | translate }}</p>
       </div>
 
       <div class="queue-list">
@@ -51,7 +123,7 @@
           <div class="queue-item-main">
             <div class="queue-product-info">
               <span class="queue-product-name">{{ product.brand }} {{ product.model }}</span>
-              <span class="queue-product-date">{{ product.year }} · {{ product.original_price | number }} € initial</span>
+              <span class="queue-product-date">{{ product.year }} · {{ product.original_price | number }} € {{ 'dashboard.initialPrice' | translate }}</span>
             </div>
             <div class="queue-right">
               <span class="grade-badge-sm" *ngIf="product.ai_predictions"
@@ -72,7 +144,7 @@
       <div class="detail-header">
         <div>
           <h2 class="detail-product-name">{{ selectedProduct.brand }} {{ selectedProduct.model }}</h2>
-          <span class="detail-ref">Ref : {{ selectedProduct.id }}</span>
+          <span class="detail-ref">{{ 'dashboard.ref' | translate }} {{ selectedProduct.id }}</span>
         </div>
         <button class="icon-btn-close" (click)="closeDetail()">✕</button>
       </div>
@@ -90,108 +162,160 @@
         <span>🚀</span>
         <div>
           <strong>{{ publishResult.message }}</strong>
-          <a [href]="publishResult.url" target="_blank" style="display:block; margin-top:0.25rem; font-size:0.82rem; color:var(--primary);">Voir l'annonce →</a>
+          <a [href]="publishResult.url" target="_blank" style="display:block; margin-top:0.25rem; font-size:0.82rem; color:var(--primary);">{{ 'dashboard.viewListing' | translate }}</a>
         </div>
       </div>
       <div class="publish-error-banner" *ngIf="publishResult && !publishResult.success">
         <span>❌</span><strong>{{ publishResult.message }}</strong>
       </div>
 
+      <!-- Product images -->
+      <div class="product-images-section" *ngIf="selectedProduct.image_paths?.length">
+        <h3 class="section-label">{{ 'dashboard.productPhotos' | translate }}</h3>
+        <div class="product-image-main">
+          <app-product-image
+            [productId]="selectedProduct.id"
+            [index]="selectedImageIndex"
+            alt="Product photo"
+            cssClass="detail-main-img">
+          </app-product-image>
+        </div>
+        <div class="product-image-thumbs" *ngIf="imageCount > 1">
+          <button type="button"
+            *ngFor="let _ of selectedProduct.image_paths; let i = index"
+            class="thumb-btn"
+            [class.active]="selectedImageIndex === i"
+            (click)="selectedImageIndex = i">
+            <app-product-image [productId]="selectedProduct.id" [index]="i" cssClass="thumb-img"></app-product-image>
+          </button>
+        </div>
+      </div>
+
+      <!-- Evaluation report PDF -->
+      <div class="report-section" *ngIf="hasReport">
+        <button class="btn btn-secondary btn-sm" (click)="downloadReport()" [disabled]="isReportLoading">
+          <span *ngIf="isReportLoading" class="btn-spinner"></span>
+          📄 {{ 'dashboard.downloadReport' | translate }}
+        </button>
+      </div>
+
       <!-- IA Evaluation Results -->
       <div class="eval-section" *ngIf="selectedProduct.ai_predictions">
-        <h3 class="section-label">📊 Résultats de l'Évaluation IA</h3>
+        <h3 class="section-label">{{ 'dashboard.aiEvaluation' | translate }}</h3>
 
         <div class="eval-row-grid">
           <div class="eval-card" [style.border-top]="'3px solid ' + getGradeColor(selectedProduct.ai_predictions.grade)">
-            <div class="eval-card-label">Grade IA</div>
+            <div class="eval-card-label">{{ 'dashboard.aiGrade' | translate }}</div>
             <div class="eval-grade-big" [style.color]="getGradeColor(selectedProduct.ai_predictions.grade)">{{ selectedProduct.ai_predictions.grade }}</div>
           </div>
           <div class="eval-card" style="border-top: 3px solid var(--primary);">
-            <div class="eval-card-label">Prix marché estimé</div>
+            <div class="eval-card-label">{{ 'dashboard.estMarketPrice' | translate }}</div>
             <div class="eval-price">{{ selectedProduct.ai_predictions.market_price | number }} €</div>
           </div>
           <div class="eval-card" style="border-top: 3px solid var(--accent-yellow);">
-            <div class="eval-card-label">Coût remise en état</div>
+            <div class="eval-card-label">{{ 'dashboard.refurbCost' | translate }}</div>
             <div class="eval-cost">{{ selectedProduct.ai_predictions.refurb_cost | number }} €</div>
           </div>
           <div class="eval-card" style="border-top: 3px solid var(--accent-purple);">
-            <div class="eval-card-label">Profit estimé</div>
+            <div class="eval-card-label">{{ 'dashboard.estimatedProfit' | translate }}</div>
             <div class="eval-profit" [style.color]="selectedProduct.ai_predictions.profit > 0 ? 'var(--primary)' : 'var(--accent-red)'">{{ selectedProduct.ai_predictions.profit | number }} €</div>
           </div>
         </div>
 
         <div class="eval-decision-row">
-          <span class="eval-label-sm">Recommandation IA :</span>
+          <span class="eval-label-sm">{{ 'dashboard.aiRecommendation' | translate }}</span>
           <strong>{{ getDecisionLabel(selectedProduct.ai_predictions.decision) }}</strong>
         </div>
 
         <div class="eval-defects" *ngIf="selectedProduct.ai_predictions.defects?.length">
-          <span class="eval-label-sm">Défauts détectés :</span>
+          <span class="eval-label-sm">{{ 'dashboard.aiDetectedDefects' | translate }}</span>
           <div class="defect-tags-row">
-            <span class="defect-tag-item" *ngFor="let d of selectedProduct.ai_predictions.defects">⚠️ {{ d }}</span>
+            <span class="defect-tag-item" *ngFor="let d of selectedProduct.ai_predictions.defects">⚠️ {{ defectLabel(d) }}</span>
           </div>
         </div>
 
         <div class="eval-sheet">
-          <div class="eval-label-sm">Titre généré IA :</div>
-          <div class="eval-sheet-title">{{ selectedProduct.ai_predictions.title }}</div>
-          <div class="eval-label-sm" style="margin-top:0.75rem;">Description :</div>
-          <div class="eval-sheet-desc">{{ selectedProduct.ai_predictions.description }}</div>
+          <div class="eval-label-sm">{{ 'dashboard.aiGeneratedTitle' | translate }}</div>
+          <div class="eval-sheet-title">{{ effectiveTitle || ('dashboard.noTitle' | translate) }}</div>
+          <div class="eval-label-sm" style="margin-top:0.75rem;">{{ 'dashboard.description' | translate }}</div>
+          <div class="eval-sheet-desc">{{ effectiveDescription || ('dashboard.noDescription' | translate) }}</div>
         </div>
       </div>
 
       <!-- ═══ ADMIN OVERRIDE ═══ -->
       <div class="admin-override-section" *ngIf="selectedProduct.status === 'PENDING_ADMIN_REVIEW' || selectedProduct.status === 'REVIEWED'">
         <h3 class="section-label" style="color: var(--accent-yellow);">
-          🛡️ Décision Admin — Validation Humaine
+          {{ 'dashboard.adminDecision' | translate }}
         </h3>
-        <p class="override-hint">Ajustez les valeurs si nécessaire. Sauvegardez d'abord, puis publiez.</p>
+        <p class="override-hint">{{ 'dashboard.overrideHint' | translate }}</p>
 
         <div class="override-fields">
           <div class="form-group">
-            <label class="form-label">Grade Final (Override)</label>
+            <label class="form-label">{{ 'dashboard.finalGrade' | translate }}</label>
             <select [(ngModel)]="adminGrade" class="form-select">
-              <option value="A">Grade A — Excellent état</option>
-              <option value="B">Grade B — Très bon état</option>
-              <option value="C">Grade C — Bon état (traces)</option>
-              <option value="D">Grade D — Usage intensif</option>
+              <option value="A">{{ 'dashboard.gradeA' | translate }}</option>
+              <option value="B">{{ 'dashboard.gradeB' | translate }}</option>
+              <option value="C">{{ 'dashboard.gradeC' | translate }}</option>
+              <option value="D">{{ 'dashboard.gradeD' | translate }}</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Prix de Vente Final (€)</label>
+            <label class="form-label">{{ 'dashboard.finalSellPrice' | translate }}</label>
             <input type="number" [(ngModel)]="adminPrice" class="form-input" min="0" step="5">
           </div>
           <div class="form-group">
-            <label class="form-label">Coût de remise en état (€)</label>
+            <label class="form-label">{{ 'dashboard.finalRefurbCost' | translate }}</label>
             <input type="number" [(ngModel)]="adminRefurbCost" class="form-input" min="0" step="5">
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom:0.75rem;">
-          <label class="form-label">Titre de l'annonce (Override)</label>
+          <label class="form-label">{{ 'dashboard.listingTitle' | translate }}</label>
           <input type="text" [(ngModel)]="adminTitle" class="form-input">
         </div>
         <div class="form-group" style="margin-bottom:1.25rem;">
-          <label class="form-label">Description (Override)</label>
+          <label class="form-label">{{ 'dashboard.listingDescription' | translate }}</label>
           <textarea [(ngModel)]="adminDescription" class="form-input" rows="3" style="resize:vertical;"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.25rem;">
+          <label class="form-label">{{ 'dashboard.adminVerifyDefects' | translate }}</label>
+          <p class="override-hint" style="margin-bottom:0.5rem;">{{ 'dashboard.adminVerifyDefectsHint' | translate }}</p>
+          <div class="defect-tags">
+            <button type="button" *ngFor="let d of defectCatalog"
+              class="defect-tag"
+              [class.selected]="isDefectSelected(d.id)"
+              (click)="toggleDefect(d.id)">
+              {{ defectLabel(d.id) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="saved-review-block" *ngIf="selectedProduct.admin_review">
+          <span class="eval-label-sm">{{ 'dashboard.savedReview' | translate }}</span>
+          <p style="font-size:0.85rem; margin:0.25rem 0 0;">
+            {{ 'dashboard.finalGrade' | translate }}: <strong>{{ selectedProduct.admin_review.grade }}</strong>
+            · {{ selectedProduct.admin_review.reviewed_by }}
+            <span *ngIf="selectedProduct.admin_review.reviewed_at"> · {{ selectedProduct.admin_review.reviewed_at | date:'dd/MM/yyyy HH:mm' }}</span>
+          </p>
         </div>
 
         <div class="action-buttons" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:1rem;">
           <button class="btn btn-secondary" (click)="saveReview()" [disabled]="isSaving || isPublishing || isRejecting || isReEvaluating">
             <span *ngIf="isSaving" class="btn-spinner"></span>
-            {{ isSaving ? 'Sauvegarde...' : '💾 Sauvegarder' }}
+            {{ isSaving ? ('dashboard.saving' | translate) : ('dashboard.save' | translate) }}
           </button>
           <button class="btn btn-primary approve-btn" (click)="publishProduct()" [disabled]="isPublishing || isSaving || isRejecting || isReEvaluating">
             <span *ngIf="isPublishing" class="btn-spinner"></span>
-            {{ isPublishing ? 'Publication...' : '🚀 Publier sur Shopify' }}
+            {{ isPublishing ? ('dashboard.publishing' | translate) : ('dashboard.publishShopify' | translate) }}
           </button>
           <button class="btn btn-secondary" (click)="reEvaluateProduct()" [disabled]="isReEvaluating || isSaving || isPublishing || isRejecting" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3);">
             <span *ngIf="isReEvaluating" class="btn-spinner"></span>
-            {{ isReEvaluating ? 'Ré-évaluation...' : '🔄 Ré-évaluer IA' }}
+            {{ isReEvaluating ? ('dashboard.reevaluating' | translate) : ('dashboard.reevaluateAI' | translate) }}
           </button>
           <button class="btn btn-danger" (click)="rejectProduct()" [disabled]="isRejecting || isSaving || isPublishing || isReEvaluating">
             <span *ngIf="isRejecting" class="btn-spinner"></span>
-            {{ isRejecting ? 'Refus...' : '❌ Refuser' }}
+            {{ isRejecting ? ('dashboard.rejecting' | translate) : ('dashboard.reject' | translate) }}
           </button>
         </div>
       </div>
@@ -200,16 +324,27 @@
       <div class="already-handled" *ngIf="selectedProduct.status === 'PUBLISHED' || selectedProduct.status === 'REJECTED'" style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
         <div style="display:flex; align-items:center; gap:0.5rem;">
           <span class="badge" [class.badge-success]="selectedProduct.status === 'PUBLISHED'" [class.badge-danger]="selectedProduct.status === 'REJECTED'" style="font-size:0.9rem; padding:0.5rem 1rem;">
-            {{ selectedProduct.status === 'PUBLISHED' ? '✓ Publié' : '✗ Rejeté' }}
+            {{ selectedProduct.status === 'PUBLISHED' ? ('dashboard.published' | translate) : ('dashboard.rejected' | translate) }}
           </span>
-          <a *ngIf="selectedProduct.shopify_url" [href]="selectedProduct.shopify_url" target="_blank" style="font-size:0.85rem; color:var(--primary);">Voir l'annonce →</a>
+          <a *ngIf="selectedProduct.shopify_url" [href]="selectedProduct.shopify_url" target="_blank" style="font-size:0.85rem; color:var(--primary);">{{ 'dashboard.viewListing' | translate }}</a>
         </div>
         <div style="display:flex; gap:0.5rem;">
           <button class="btn btn-secondary btn-sm" (click)="reEvaluateProduct()" [disabled]="isReEvaluating">
-            🔄 Ré-évaluer ce produit
+            {{ 'dashboard.reevaluateProduct' | translate }}
           </button>
           <button *ngIf="selectedProduct.status !== 'REJECTED'" class="btn btn-danger btn-sm" (click)="rejectProduct()" [disabled]="isRejecting">
-            ❌ Refuser le produit
+            {{ 'dashboard.rejectProduct' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Danger zone: delete AI_ERROR / broken products -->
+      <div class="already-handled" *ngIf="selectedProduct.status === 'AI_ERROR' || selectedProduct.status === 'REJECTED'" style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
+        <p class="override-hint" style="margin-bottom:0;" *ngIf="selectedProduct.error_detail">{{ selectedProduct.error_detail }}</p>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-danger btn-sm" (click)="deleteProduct()" [disabled]="isDeleting">
+            <span *ngIf="isDeleting" class="btn-spinner"></span>
+            🗑️ {{ 'dashboard.deleteProduct' | translate }}
           </button>
         </div>
       </div>
@@ -219,8 +354,8 @@
     <!-- No selection -->
     <div class="detail-empty" *ngIf="!selectedProduct">
       <div class="empty-icon">🔍</div>
-      <h3>Sélectionnez un produit</h3>
-      <p>Cliquez sur un produit dans la file pour voir les détails et prendre une décision.</p>
+      <h3>{{ 'dashboard.selectProduct' | translate }}</h3>
+      <p>{{ 'dashboard.selectProductSub' | translate }}</p>
     </div>
 
   </div>

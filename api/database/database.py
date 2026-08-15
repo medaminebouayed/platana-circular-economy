@@ -12,4 +12,6 @@ client = AsyncIOMotorClient(MONGO_URL)
 db = client.platana_circular_economy
 products_collection = db.products
 users_collection = db.users
-workshops_collection = db.workshops
+workshops_collection = db.workshops
+product_catalog_collection = db.product_catalog
+pricing_training_samples_collection = db.pricing_training_samples

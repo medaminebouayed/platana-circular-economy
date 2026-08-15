@@ -1,8 +1,8 @@
 <div class="settings-page" *ngIf="user$ | async as user">
 
   <div class="settings-header">
-    <h1 class="settings-title">⚙️ Paramètres</h1>
-    <p class="settings-subtitle">Personnalisez votre expérience Platana</p>
+    <h1 class="settings-title">{{ 'settings.title' | translate }}</h1>
+    <p class="settings-subtitle">{{ 'settings.subtitle' | translate }}</p>
   </div>
 
   <!-- ══════════════════ PROFILE ══════════════════ -->
@@ -10,8 +10,8 @@
     <div class="card-header">
       <div class="card-icon user-icon">👤</div>
       <div>
-        <h2 class="card-title">Profil</h2>
-        <p class="card-desc">Modifiez votre nom d'affichage</p>
+        <h2 class="card-title">{{ 'settings.profile' | translate }}</h2>
+        <p class="card-desc">{{ 'settings.profileDesc' | translate }}</p>
       </div>
     </div>
 
@@ -25,22 +25,22 @@
 
     <div class="settings-fields">
       <div class="form-group">
-        <label class="form-label">Nom d'affichage</label>
-        <input type="text" [(ngModel)]="profileName" class="form-input" placeholder="Votre nom">
+        <label class="form-label">{{ 'settings.displayName' | translate }}</label>
+        <input type="text" [(ngModel)]="profileName" class="form-input" [placeholder]="'settings.yourName' | translate">
       </div>
       <div class="form-group">
-        <label class="form-label">Email</label>
+        <label class="form-label">{{ 'settings.email' | translate }}</label>
         <input type="email" [value]="user.email" class="form-input" disabled>
-        <span class="field-hint">L'adresse email ne peut pas être modifiée.</span>
+        <span class="field-hint">{{ 'settings.emailHint' | translate }}</span>
       </div>
     </div>
 
     <div class="action-row">
-      <div class="feedback-msg success" *ngIf="profileSuccess">✅ Profil mis à jour !</div>
+      <div class="feedback-msg success" *ngIf="profileSuccess">{{ 'settings.profileUpdated' | translate }}</div>
       <div class="feedback-msg error" *ngIf="profileError">⚠️ {{ profileError }}</div>
       <button class="btn btn-primary" (click)="saveProfile()" [disabled]="profileSaving">
         <span *ngIf="profileSaving" class="btn-spinner-sm"></span>
-        {{ profileSaving ? 'Sauvegarde...' : '💾 Mettre à jour le profil' }}
+        {{ profileSaving ? ('settings.saving' | translate) : ('settings.updateProfile' | translate) }}
       </button>
     </div>
   </div>
@@ -50,32 +50,32 @@
     <div class="card-header">
       <div class="card-icon" style="background: rgba(59,130,246,0.1); font-size:1.4rem;">🔑</div>
       <div>
-        <h2 class="card-title">Sécurité</h2>
-        <p class="card-desc">Changez votre mot de passe</p>
+        <h2 class="card-title">{{ 'settings.security' | translate }}</h2>
+        <p class="card-desc">{{ 'settings.securityDesc' | translate }}</p>
       </div>
     </div>
 
     <div class="settings-fields">
       <div class="form-group">
-        <label class="form-label">Mot de passe actuel</label>
+        <label class="form-label">{{ 'settings.currentPassword' | translate }}</label>
         <input type="password" [(ngModel)]="currentPassword" class="form-input" placeholder="••••••••" autocomplete="current-password">
       </div>
       <div class="form-group">
-        <label class="form-label">Nouveau mot de passe</label>
-        <input type="password" [(ngModel)]="newPassword" class="form-input" placeholder="Min. 6 caractères" autocomplete="new-password">
+        <label class="form-label">{{ 'settings.newPassword' | translate }}</label>
+        <input type="password" [(ngModel)]="newPassword" class="form-input" [placeholder]="'settings.minPasswordHint' | translate" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label class="form-label">Confirmer le nouveau mot de passe</label>
+        <label class="form-label">{{ 'settings.confirmPassword' | translate }}</label>
         <input type="password" [(ngModel)]="confirmPassword" class="form-input" placeholder="••••••••" autocomplete="new-password">
       </div>
     </div>
 
     <div class="action-row">
-      <div class="feedback-msg success" *ngIf="passwordSuccess">✅ Mot de passe modifié avec succès !</div>
+      <div class="feedback-msg success" *ngIf="passwordSuccess">{{ 'settings.passwordChanged' | translate }}</div>
       <div class="feedback-msg error" *ngIf="passwordError">⚠️ {{ passwordError }}</div>
       <button class="btn btn-primary" (click)="changePassword()" [disabled]="passwordSaving">
         <span *ngIf="passwordSaving" class="btn-spinner-sm"></span>
-        {{ passwordSaving ? 'Modification...' : '🔒 Changer le mot de passe' }}
+        {{ passwordSaving ? ('settings.changingPassword' | translate) : ('settings.changePassword' | translate) }}
       </button>
     </div>
   </div>
@@ -85,15 +85,15 @@
     <div class="card-header">
       <div class="card-icon appearance-icon">🎨</div>
       <div>
-        <h2 class="card-title">Apparence & Préférences</h2>
-        <p class="card-desc">Personnalisez l'interface</p>
+        <h2 class="card-title">{{ 'settings.appearance' | translate }}</h2>
+        <p class="card-desc">{{ 'settings.appearanceDesc' | translate }}</p>
       </div>
     </div>
 
     <div class="setting-row">
       <div class="setting-info">
-        <span class="setting-name">Thème sombre</span>
-        <span class="setting-desc">Basculer entre le mode clair et sombre</span>
+        <span class="setting-name">{{ 'settings.darkTheme' | translate }}</span>
+        <span class="setting-desc">{{ 'settings.darkThemeDesc' | translate }}</span>
       </div>
       <div class="toggle-switch" [class.on]="isDarkTheme" (click)="toggleTheme()">
         <div class="toggle-thumb"></div>
@@ -102,8 +102,8 @@
 
     <div class="setting-row">
       <div class="setting-info">
-        <span class="setting-name">Notifications app</span>
-        <span class="setting-desc">Alertes lorsqu'un produit est validé</span>
+        <span class="setting-name">{{ 'settings.appNotifications' | translate }}</span>
+        <span class="setting-desc">{{ 'settings.appNotificationsDesc' | translate }}</span>
       </div>
       <div class="toggle-switch" [class.on]="notificationsEnabled" (click)="notificationsEnabled = !notificationsEnabled">
         <div class="toggle-thumb"></div>
@@ -112,8 +112,8 @@
 
     <div class="setting-row">
       <div class="setting-info">
-        <span class="setting-name">Notifications email</span>
-        <span class="setting-desc">Résumé hebdomadaire de vos soumissions</span>
+        <span class="setting-name">{{ 'settings.emailNotifications' | translate }}</span>
+        <span class="setting-desc">{{ 'settings.emailNotificationsDesc' | translate }}</span>
       </div>
       <div class="toggle-switch" [class.on]="emailNotifs" (click)="emailNotifs = !emailNotifs">
         <div class="toggle-thumb"></div>
@@ -121,19 +121,19 @@
     </div>
 
     <div class="form-group" style="margin-top: 1.2rem;">
-      <label class="form-label">Langue de l'interface</label>
-      <select [(ngModel)]="language" class="form-select">
+      <label class="form-label">{{ 'settings.language' | translate }}</label>
+      <select [(ngModel)]="language" class="form-select" (change)="onLanguageChange()">
         <option value="fr">Français 🇫🇷</option>
         <option value="en">English 🇬🇧</option>
       </select>
     </div>
 
     <div class="action-row">
-      <div class="feedback-msg success" *ngIf="prefsSuccess">✅ Préférences sauvegardées !</div>
+      <div class="feedback-msg success" *ngIf="prefsSuccess">{{ 'settings.saved' | translate }}</div>
       <div class="feedback-msg error" *ngIf="prefsError">⚠️ {{ prefsError }}</div>
       <button class="btn btn-primary" (click)="savePreferences()" [disabled]="prefsSaving">
         <span *ngIf="prefsSaving" class="btn-spinner-sm"></span>
-        {{ prefsSaving ? 'Sauvegarde...' : '💾 Sauvegarder les préférences' }}
+        {{ prefsSaving ? ('settings.saving' | translate) : ('settings.savePreferences' | translate) }}
       </button>
     </div>
   </div>
@@ -143,13 +143,13 @@
     <div class="card-header">
       <div class="card-icon danger-icon">🔐</div>
       <div>
-        <h2 class="card-title">Session</h2>
-        <p class="card-desc">Gérez votre connexion</p>
+        <h2 class="card-title">{{ 'settings.session' | translate }}</h2>
+        <p class="card-desc">{{ 'settings.sessionDesc' | translate }}</p>
       </div>
     </div>
     <button class="btn btn-danger logout-btn" (click)="authService.logout()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Se déconnecter
+      {{ 'settings.logout' | translate }}
     </button>
   </div>
 

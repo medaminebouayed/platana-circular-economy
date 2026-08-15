@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../services/api.service';
+import { TranslationService } from '../services/translation.service';
 
 interface Workshop {
   id: string;
@@ -68,7 +69,11 @@ export class LogisticsComponent implements OnInit {
   isSavingWorkshop = false;
   workshopSpecialtiesInput = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private translation: TranslationService) {}
+
+  tWith(key: string, params?: Record<string, string | number>): string {
+    return this.translation.tWith(key, params || {});
+  }
 
   ngOnInit() {
     this.loadWorkshops();
@@ -96,9 +101,9 @@ export class LogisticsComponent implements OnInit {
 
   getStatusLabel(status: string): string {
     const map: Record<string, string> = {
-      available: 'Disponible',
-      busy: 'Chargé',
-      full: 'Complet',
+      available: this.translation.t('logistics.status.available'),
+      busy: this.translation.t('logistics.status.busy'),
+      full: this.translation.t('logistics.status.full'),
     };
     return map[status] || status;
   }
@@ -114,9 +119,9 @@ export class LogisticsComponent implements OnInit {
 
   getDecisionLabel(d: string): string {
     const map: Record<string, string> = {
-      RESALE_DIRECT: 'Revente directe',
-      RECONDITION: 'Reconditionnement',
-      RECYCLE: 'Recyclage',
+      RESALE_DIRECT: this.translation.t('logistics.dec.RESALE_DIRECT'),
+      RECONDITION: this.translation.t('logistics.dec.RECONDITION'),
+      RECYCLE: this.translation.t('logistics.dec.RECYCLE'),
     };
     return map[d] || d;
   }
@@ -134,7 +139,7 @@ export class LogisticsComponent implements OnInit {
       },
       error: (err) => {
         this.isOptimizing = false;
-        const detail = err?.error?.detail || 'Optimization failed. Is the orchestrator running?';
+        const detail = err?.error?.detail || this.translation.t('logistics.optimizeError');
         alert(detail);
       }
     });
@@ -179,23 +184,23 @@ export class LogisticsComponent implements OnInit {
       delete payload.id;
       this.api.updateWorkshop(id, payload).subscribe({
         next: () => { this.isSavingWorkshop = false; this.closeModal(); this.loadWorkshops(); },
-        error: () => { this.isSavingWorkshop = false; alert('Erreur lors de la mise à jour.'); }
+        error: () => { this.isSavingWorkshop = false; alert(this.translation.t('logistics.updateError')); }
       });
     } else {
       delete payload.id;
       this.api.createWorkshop(payload).subscribe({
         next: () => { this.isSavingWorkshop = false; this.closeModal(); this.loadWorkshops(); },
-        error: () => { this.isSavingWorkshop = false; alert('Erreur lors de la création.'); }
+        error: () => { this.isSavingWorkshop = false; alert(this.translation.t('logistics.createError')); }
       });
     }
   }
 
   deleteWorkshop(w: Workshop, event: Event) {
     event.stopPropagation();
-    if (!confirm(`Supprimer l'atelier "${w.name}" ?`)) return;
+    if (!confirm(this.translation.tWith('logistics.deleteConfirm', { name: w.name }))) return;
     this.api.deleteWorkshop(w.id).subscribe({
       next: () => { this.loadWorkshops(); if (this.selectedWorkshop?.id === w.id) this.selectedWorkshop = null; },
-      error: () => alert('Erreur lors de la suppression.')
+      error: () => alert(this.translation.t('logistics.deleteError'))
     });
   }
 }

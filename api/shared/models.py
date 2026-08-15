@@ -23,6 +23,7 @@ class AdminReview(BaseModel):
     refurb_cost: float
     title: str
     description: str
+    decision: str = ""
     reviewed_by: str = "admin"
     reviewed_at: datetime = Field(default_factory=datetime.utcnow)
 

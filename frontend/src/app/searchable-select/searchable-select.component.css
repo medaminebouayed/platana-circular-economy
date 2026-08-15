@@ -1,0 +1,275 @@
+.ss-root {
+  position: relative;
+  width: 100%;
+}
+
+.ss-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 1rem;
+  /* Changed to --ss-panel-bg to prevent global transparent variables from leaking in */
+  background-color: var(--ss-panel-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: var(--font-body, inherit);
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-main, #0f172a);
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+}
+
+.ss-control:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary, #10b981) 40%, var(--border-color, #e2e8f0));
+}
+
+.ss-root.ss-open .ss-control {
+  border-color: var(--primary, #10b981);
+  box-shadow: 0 0 0 3px var(--primary-glow, rgba(16, 185, 129, 0.25));
+}
+
+.ss-root.ss-disabled .ss-control {
+  opacity: 0.6;
+  cursor: not-allowed;
+  /* Changed to --ss-bg-color */
+  background-color: var(--ss-bg-color, #f8fafc);
+}
+
+.ss-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-main, #0f172a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-placeholder {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-muted, #64748b);
+}
+
+.ss-caret {
+  color: var(--text-muted, #64748b);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.ss-caret-open {
+  transform: rotate(180deg);
+}
+
+.ss-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-color, #e2e8f0);
+  border-top-color: var(--primary, #10b981);
+  border-radius: 50%;
+  animation: ss-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.ss-spinner-inline {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes ss-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ss-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  /* Increased z-index to ensure it sits above everything */
+  z-index: 9999;
+  /* Changed to --ss-panel-bg */
+  background-color: var(--ss-panel-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.08));
+  overflow: hidden;
+}
+
+.ss-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  /* Changed to --ss-bg-color */
+  background-color: var(--ss-bg-color, #f8fafc);
+}
+
+.ss-search-icon {
+  color: var(--text-muted, #64748b);
+  flex-shrink: 0;
+}
+
+.ss-filter {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-main, #0f172a);
+  font-family: var(--font-body, inherit);
+}
+
+.ss-filter::placeholder {
+  color: var(--text-muted, #64748b);
+}
+
+.ss-options {
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.4rem;
+  /* Changed to --ss-panel-bg */
+  background-color: var(--ss-panel-bg, #ffffff);
+}
+
+.ss-option {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-sm, 8px) - 2px);
+  /* Changed to --ss-panel-bg */
+  background-color: var(--ss-panel-bg, #ffffff);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body, inherit);
+  font-size: inherit;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-main, #0f172a);
+  transition: background-color 0.12s, border-color 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+}
+
+.ss-option:last-child {
+  margin-bottom: 0;
+}
+
+.ss-option:hover,
+.ss-option:focus-visible {
+  /* Changed to --ss-bg-color */
+  background-color: var(--ss-bg-color, #f8fafc);
+  border-color: var(--border-color, #e2e8f0);
+  outline: none;
+}
+
+.ss-option-selected {
+  /* Increased opacity from 0.1 to 0.2 for better visibility */
+  background-color: hsla(var(--primary-hsl, 158, 64%, 42%), 0.2);
+  border-color: hsla(var(--primary-hsl, 158, 64%, 42%), 0.3);
+}
+
+.ss-option-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.ss-option-label {
+  display: block;
+  width: 100%;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-main, #0f172a);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.ss-option-sub {
+  display: block;
+  width: 100%;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--text-muted, #64748b);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.ss-check {
+  color: var(--primary, #10b981);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.ss-loading,
+.ss-empty {
+  padding: 1rem 0.85rem;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  /* Changed to --ss-panel-bg */
+  background-color: var(--ss-panel-bg, #ffffff);
+}
+
+.ss-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Dark theme: keep dropdown opaque like form inputs */
+body.dark-theme .ss-control,
+body.dark-theme .ss-dropdown,
+body.dark-theme .ss-options,
+body.dark-theme .ss-option,
+body.dark-theme .ss-loading,
+body.dark-theme .ss-empty {
+  /* Changed to --ss-panel-bg */
+  background-color: var(--ss-panel-bg, #111827);
+}
+
+body.dark-theme .ss-search-row {
+  /* Changed to --ss-bg-color */
+  background-color: var(--ss-bg-color, #0b0f19);
+}
+
+body.dark-theme .ss-option:hover,
+body.dark-theme .ss-option:focus-visible {
+  /* Changed to --ss-bg-color */
+  background-color: var(--ss-bg-color, #0b0f19);
+}
+
+body.dark-theme .ss-option-selected {
+  /* Increased opacity from 0.15 to 0.25 for dark mode visibility */
+  background-color: hsla(var(--primary-hsl, 158, 64%, 42%), 0.25);
+}

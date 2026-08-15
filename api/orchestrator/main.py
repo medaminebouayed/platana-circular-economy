@@ -6,6 +6,8 @@ Port: 8000
 """
 import os
 import logging
+from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import List
 
@@ -38,19 +40,22 @@ SHOPIFY_STORE_URL = os.getenv("SHOPIFY_STORE_URL")
 SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN")
 
 # ── App ─────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    if mongo_client:
+        mongo_client.close()
+        logger.info("MongoDB connection closed.")
+
+
 app = FastAPI(
     title="Platana Orchestrator",
     description="Central orchestration service that coordinates CV, Pricing, and GenAI services.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    if mongo_client:
-        mongo_client.close()
-        logger.info("MongoDB connection closed.")
 
 # ── Decision Engine ──────────────────────────────────────────────
 class DecisionEngine:
@@ -131,7 +136,7 @@ async def process_product(
                 "model": model,
                 "original_price": original_price,
                 "category": "smartphone",
-                "age_days": max(0, (2025 - year) * 365),
+                "age_days": max(0, (datetime.now().year - year) * 365),
                 "defects": defects,           # <-- AJOUTÉ : On passe les défauts
                 "repair_cost": refurb_cost,   # <-- AJOUTÉ : On passe le coût calculé
             }

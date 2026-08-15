@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { TranslationService } from '../services/translation.service';
 
 @Component({
   selector: 'app-user-register',
@@ -14,7 +15,7 @@ export class UserRegisterComponent {
   isLoading = false;
   error = '';
 
-  constructor(private authService: AuthService, private router: Router) {
+  constructor(private authService: AuthService, private router: Router, public translation: TranslationService) {
     if (this.authService.isAuthenticated()) {
       if (this.authService.hasRole(['ADMIN'])) {
         this.router.navigate(['/dashboard']);
@@ -26,7 +27,7 @@ export class UserRegisterComponent {
 
   submit() {
     if (!this.name || !this.email || !this.password) {
-      this.error = 'Veuillez remplir tous les champs.';
+      this.error = this.translation.t('login.fillAllFields');
       return;
     }
     
@@ -39,7 +40,7 @@ export class UserRegisterComponent {
       },
       error: (err) => {
         this.isLoading = false;
-        this.error = err?.error?.detail || 'Erreur lors de l\'inscription.';
+        this.error = err?.error?.detail || this.translation.t('register.registerError');
       }
     });
   }

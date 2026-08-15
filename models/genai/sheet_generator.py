@@ -10,23 +10,13 @@ class ProductSheetGenerator:
         repo_root = Path(__file__).resolve().parents[2]
         load_dotenv(repo_root / ".env")
         
-        # On supprime le chargement du JSON, on n'en a plus besoin !
-        
         api_key = os.getenv("GROQ_API_KEY")
         if api_key:
             self.client = Groq(api_key=api_key)
-            self.use_real_api = True
             print("GenAI : Client Groq initialisé avec succès.")
         else:
-            print("Warning: GROQ_API_KEY non trouvée dans le .env. Utilisation du mode simulé.")
-            self.use_real_api = False
-
-    def _get_fallback_text(self, repaired_defects):
-        """Fallback basique si l'API Groq ne fonctionne pas."""
-        if not repaired_defects or repaired_defects == ["no_defect"]:
-            return "Aucune réparation majeure. Produit testé et nettoyé."
-        clean_defects = [d.replace("_", " ").capitalize() for d in repaired_defects]
-        return "Réparations effectuées : " + ", ".join(clean_defects) + "."
+            self.client = None
+            print("Error: GROQ_API_KEY non trouvée dans le .env. La génération de fiche produit est indisponible.")
 
     def generate_sheet_text(self, model_name, grade, repaired_defects, price):
         """Génère le texte de la fiche produit via Groq (Llama 3.3)."""
@@ -37,51 +27,44 @@ class ProductSheetGenerator:
         else:
             raw_defects_str = ", ".join(repaired_defects)
         
-        if self.use_real_api:
-            prompt = f"""
-            Tu es un expert en reconditionnement de produits électroniques. Rédige une fiche produit pour la vente en ligne.
-            L'annonce doit être honnête, optimisée SEO, rassurante et rédigée en français.
-            
-            Données Produit:
-            - Modèle: {model_name}
-            - Grade: {grade} (A=Parfait état, B=Très bon état, C=Bon état avec micro-rayures visibles, D=État correct avec défauts esthétiques marqués)
-            - Liste technique des réparations effectuées par l'atelier: {raw_defects_str}
-            - Prix de revente: {price}€
-            
-            INSTRUCTION IMPORTANTE: 
-            La liste des réparations est donnée en format technique informatique (ex: "screen_crack", "cosmetic_scratch").
-            Tu DOIS traduire dynamiquement ces termes techniques en français commercial humain et rassurant dans la description (ex: "Écran remplacé par nos soins", "Coque arrière polie"). 
-            Intègre ces réparations naturellement dans la description.
-            
-            Retourne UNIQUEMENT un objet JSON valide avec exactement ce format:
-            {{
-                "title": "Titre accrocheur et SEO (max 60 caractères)",
-                "description": "Description commerciale de 3 à 4 phrases",
-                "highlights": ["Point fort 1", "Point fort 2", "Point fort 3"],
-                "warnings": ["Point d'attention ou défaut esthétique à signaler"]
-            }}
-            """
-            
-            try:
-                response = self.client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"}
-                )
-                return json.loads(response.choices[0].message.content)
-            except Exception as e:
-                print(f"Erreur API Groq: {e}. Bascule sur le mode simulé.")
-                self.use_real_api = False
+        if self.client is None:
+            raise RuntimeError(
+                "GROQ_API_KEY manquante : la génération de la fiche produit ne peut pas être simulée."
+            )
+
+        prompt = f"""
+        Tu es un expert en reconditionnement de produits électroniques. Rédige une fiche produit pour la vente en ligne.
+        L'annonce doit être honnête, optimisée SEO, rassurante et rédigée en français.
         
-        # Mode simulé (fallback) - Utilise la fonction de secours
-        if not self.use_real_api:
-            repair_info = self._get_fallback_text(repaired_defects)
-            return {
-                "title": f"{model_name} Reconditionné - Grade {grade}",
-                "description": f"Ce {model_name} a été entièrement inspecté et reconditionné par nos techniciens. Profitez d'un produit performant à prix réduit, couvert par notre garantie de 6 mois. {repair_info}.",
-                "highlights": ["Testé et certifié par nos ateliers", "Garantie 6 mois incluse", f"Économie de {price}€ par rapport au neuf"],
-                "warnings": [f"Présence de micro-traces d'usage liées au Grade {grade}"]
-            }
+        Données Produit:
+        - Modèle: {model_name}
+        - Grade: {grade} (A=Parfait état, B=Très bon état, C=Bon état avec micro-rayures visibles, D=État correct avec défauts esthétiques marqués)
+        - Liste technique des réparations effectuées par l'atelier: {raw_defects_str}
+        - Prix de revente: {price}€
+        
+        INSTRUCTION IMPORTANTE: 
+        La liste des réparations est donnée en format technique informatique (ex: "screen_crack", "cosmetic_scratch").
+        Tu DOIS traduire dynamiquement ces termes techniques en français commercial humain et rassurant dans la description (ex: "Écran remplacé par nos soins", "Coque arrière polie"). 
+        Intègre ces réparations naturellement dans la description.
+        
+        Retourne UNIQUEMENT un objet JSON valide avec exactement ce format:
+        {{
+            "title": "Titre accrocheur et SEO (max 60 caractères)",
+            "description": "Description commerciale de 3 à 4 phrases",
+            "highlights": ["Point fort 1", "Point fort 2", "Point fort 3"],
+            "warnings": ["Point d'attention ou défaut esthétique à signaler"]
+        }}
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            raise RuntimeError(f"Erreur API Groq: {e}") from e
 
     def _clean_text_for_pdf(self, text):
         """Nettoie le texte pour le rendre compatible avec la police Helvetica de FPDF."""

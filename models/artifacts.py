@@ -89,3 +89,15 @@ def resolve_version_artifact(
     if not candidate.is_file():
         raise FileNotFoundError(f"Artifact not found for version {version_id}: {candidate}")
     return candidate
+
+
+def read_active_manifest(checkpoint_dir: str | Path, pointer_name: str = "latest.json") -> dict[str, Any] | None:
+    """Read the manifest belonging to a promoted version, if one exists."""
+    checkpoint_dir = Path(checkpoint_dir)
+    pointer_path = checkpoint_dir / pointer_name
+    try:
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        manifest_path = checkpoint_dir / pointer["relative_path"] / "manifest.json"
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None

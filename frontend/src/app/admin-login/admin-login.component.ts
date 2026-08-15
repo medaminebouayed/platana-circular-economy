@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { TranslationService } from '../services/translation.service';
 
 @Component({
   selector: 'app-admin-login',
@@ -17,7 +18,8 @@ export class AdminLoginComponent {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    public translation: TranslationService
   ) {
     this.sessionExpired = this.route.snapshot.queryParamMap.get('expired') === '1';
 
@@ -31,14 +33,14 @@ export class AdminLoginComponent {
   }
 
   submit() {
-    if (!this.email || !this.password) { this.error = 'Veuillez remplir tous les champs.'; return; }
+    if (!this.email || !this.password) { this.error = this.translation.t('login.fillAllFields'); return; }
     this.isLoading = true;
     this.error = '';
     this.sessionExpired = false;
     this.authService.login(this.email, this.password, 'ADMIN').subscribe({
       error: (err) => {
         this.isLoading = false;
-        this.error = err?.error?.detail || 'Identifiants administrateur invalides.';
+        this.error = err?.error?.detail || this.translation.t('adminLogin.invalidCredentials');
       }
     });
   }

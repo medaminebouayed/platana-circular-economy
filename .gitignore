@@ -17,6 +17,7 @@ data/processed/*
 data/external/*
 !data/**/.gitkeep
 data/uploads/*
+data/reports/*
 temp_upload/
 
 # Models

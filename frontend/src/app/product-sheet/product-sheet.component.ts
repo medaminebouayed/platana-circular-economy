@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
 
+import { ApiService } from '../services/api.service';
+import { TranslationService } from '../services/translation.service';
 
 @Component({
   selector: 'app-product-sheet',
@@ -20,12 +22,12 @@ export class ProductSheetComponent {
   };
 
   defectOptions = [
-    { value: 'scratch', label: 'Rayure' },
-    { value: 'dent', label: 'Enfoncement / Choc' },
-    { value: 'crack', label: 'Fissure' },
-    { value: 'discoloration', label: 'Décoloration' },
-    { value: 'missing_part', label: 'Pièce manquante' },
-    { value: 'water_damage', label: 'Dégât des eaux' },
+    { value: 'scratch', label: this.translation.t('sheet.defect.scratch') },
+    { value: 'dent', label: this.translation.t('sheet.defect.dent') },
+    { value: 'crack', label: this.translation.t('sheet.defect.crack') },
+    { value: 'discoloration', label: this.translation.t('sheet.defect.discoloration') },
+    { value: 'missing_part', label: this.translation.t('sheet.defect.missing_part') },
+    { value: 'water_damage', label: this.translation.t('sheet.defect.water_damage') },
   ];
 
   categories = ['Smartphone', 'Ordinateur', 'Tablette', 'TV', 'Aspirateur', 'Audio', 'Outillage', 'Console de jeux'];
@@ -40,7 +42,7 @@ export class ProductSheetComponent {
 
   publishSteps: Array<{ label: string; status: 'pending' | 'running' | 'done' | 'error' }> = [];
 
-  constructor() {}
+  constructor(private translation: TranslationService, private api: ApiService) {}
 
   toggleDefect(value: string) {
     const idx = this.form.defects.indexOf(value);
@@ -59,9 +61,17 @@ export class ProductSheetComponent {
     clearInterval(this.typewriterInterval);
     this.displayedText = '';
 
-    // Deprecated
-    console.log("Generating...");
-    this.isLoading = false;
+    this.api.generateSheet(this.form).subscribe({
+      next: (res) => {
+        this.isLoading = false;
+        this.result = res;
+        this.startTypewriter(res.description);
+      },
+      error: () => {
+        this.isLoading = false;
+        this.result = null;
+      }
+    });
   }
 
   private startTypewriter(fullText: string) {
@@ -122,10 +132,10 @@ export class ProductSheetComponent {
 
   getDecisionLabel(): string {
     const map: Record<string, string> = {
-      RESALE_DIRECT: 'Revente Directe',
-      RECONDITION: 'Reconditionnement Requis',
-      RECYCLE: 'Recyclage D3E',
-      HOLD: 'En Attente',
+      RESALE_DIRECT: this.translation.t('sheet.decision.RESALE_DIRECT'),
+      RECONDITION: this.translation.t('sheet.decision.RECONDITION'),
+      RECYCLE: this.translation.t('sheet.decision.RECYCLE'),
+      HOLD: this.translation.t('sheet.decision.HOLD'),
     };
     return map[this.result?.decision || ''] || '';
   }

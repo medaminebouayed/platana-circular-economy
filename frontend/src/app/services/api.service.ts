@@ -27,9 +27,13 @@ export interface ProductSummary {
     description: string;
     defects: string[];
     refurb_cost: number;
+    decision?: string;
     reviewed_by: string;
+    reviewed_at?: string;
   };
   shopify_url?: string;
+  report_path?: string;
+  error_detail?: string;
 }
 
 export interface UploadEvaluatePayload {
@@ -41,6 +45,11 @@ export interface UploadEvaluatePayload {
   files: File[];
 }
 
+export interface DefectCatalogItem {
+  id: string;
+  label_key: string;
+}
+
 export interface AdminReviewPayload {
   grade: string;
   defects: string[];
@@ -48,7 +57,15 @@ export interface AdminReviewPayload {
   refurb_cost: number;
   title: string;
   description: string;
+  decision?: string;
   reviewed_by: string;
+  reviewed_at?: string;
+}
+
+export interface CatalogModel {
+  model: string;
+  category: string;
+  original_price: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -77,7 +94,47 @@ export class ApiService {
   }
 
   getUserProducts(email: string): Observable<ProductSummary[]> {
-    return this.http.get<ProductSummary[]>(`/api/products/user/${email}`);
+    return this.http.get<ProductSummary[]>(`/api/products/user/${encodeURIComponent(email)}`);
+  }
+
+  getProduct(productId: string): Observable<ProductSummary> {
+    return this.http.get<ProductSummary>(`/api/products/${productId}`);
+  }
+
+  getProductReport(productId: string): Observable<Blob> {
+    return this.http.get(`/api/products/${productId}/report`, { responseType: 'blob' });
+  }
+
+  deleteProduct(productId: string): Observable<any> {
+    return this.http.delete(`/api/products/${productId}`);
+  }
+
+  gradeImages(files: File[]): Observable<any> {
+    const form = new FormData();
+    files.forEach(f => form.append('files', f));
+    return this.http.post<any>('/api/cv/grade', form);
+  }
+
+  predictPrice(payload: any): Observable<any> {
+    return this.http.post<any>('/api/pricing/predict', payload);
+  }
+
+  generateSheet(payload: any): Observable<any> {
+    return this.http.post<any>('/api/sheet/generate', payload);
+  }
+
+  getDefectCatalog(): Observable<{ items: DefectCatalogItem[] }> {
+    return this.http.get<{ items: DefectCatalogItem[] }>('/api/defects/catalog');
+  }
+
+  searchCatalogBrands(query: string): Observable<{ items: string[] }> {
+    return this.http.get<{ items: string[] }>('/api/catalog/brands', { params: { q: query, limit: '20' } });
+  }
+
+  searchCatalogModels(brand: string, query: string): Observable<{ items: CatalogModel[] }> {
+    return this.http.get<{ items: CatalogModel[] }>('/api/catalog/models', {
+      params: { brand, q: query, limit: '30' }
+    });
   }
 
   reviewProduct(productId: string, review: AdminReviewPayload): Observable<any> {
@@ -109,6 +166,19 @@ export class ApiService {
     return this.http.get<any>('/api/stats/dashboard');
   }
 
+  getDriftStats(windowDays: number = 30): Observable<any> {
+    return this.http.get<any>('/api/stats/drift', { params: { window_days: String(windowDays) } });
+  }
+
+  // ─── CONTINUOUS LEARNING (ADMIN) ──────────────────────────
+  createTrainingJob(model: 'pricing' | 'cv'): Observable<any> {
+    return this.http.post<any>('/api/training/jobs', { model });
+  }
+
+  getTrainingJobs(limit: number = 20): Observable<any> {
+    return this.http.get<any>('/api/training/jobs', { params: { limit: String(limit) } });
+  }
+
   getWorkshops(): Observable<any[]> {
     return this.http.get<any[]>('/api/logistics/workshops');
   }
@@ -129,4 +199,3 @@ export class ApiService {
     return this.http.post<any>('/api/logistics/optimize', {});
   }
 }
-

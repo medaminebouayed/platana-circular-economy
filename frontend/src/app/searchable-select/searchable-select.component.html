@@ -1,0 +1,50 @@
+<div class="ss-root" [class.ss-open]="open" [class.ss-disabled]="disabled">
+  <button
+    type="button"
+    class="ss-control"
+    [disabled]="disabled"
+    (click)="toggleOpen($event)"
+    [attr.aria-expanded]="open"
+  >
+    <span class="ss-value" *ngIf="value">{{ value }}</span>
+    <span class="ss-placeholder" *ngIf="!value">{{ placeholder }}</span>
+    <span class="ss-spinner" *ngIf="loading"></span>
+    <svg class="ss-caret" [class.ss-caret-open]="open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+  </button>
+
+  <div class="ss-dropdown" *ngIf="open" (click)="$event.stopPropagation()">
+    <div class="ss-search-row">
+      <svg class="ss-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input
+        #filterInput
+        type="text"
+        class="ss-filter"
+        [placeholder]="placeholder"
+        [value]="filter"
+        (input)="onFilterInput($event)"
+        (keydown.enter)="filteredOptions.length ? selectOption(filteredOptions[0], $event) : null"
+        (keydown.escape)="close()"
+      />
+    </div>
+    <div class="ss-options">
+      <div class="ss-loading" *ngIf="loading && !options.length">
+        <span class="ss-spinner ss-spinner-inline"></span>
+        <span>{{ loadingMessage }}</span>
+      </div>
+      <button
+        type="button"
+        class="ss-option"
+        *ngFor="let option of filteredOptions"
+        [class.ss-option-selected]="isSelected(option)"
+        (mousedown)="selectOption(option, $event)"
+      >
+        <span class="ss-option-main">
+          <span class="ss-option-label">{{ option.label }}</span>
+          <span class="ss-option-sub" *ngIf="option.subLabel">{{ option.subLabel }}</span>
+        </span>
+        <svg *ngIf="isSelected(option)" class="ss-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </button>
+      <div class="ss-empty" *ngIf="!loading && filteredOptions.length === 0">{{ emptyMessage }}</div>
+    </div>
+  </div>
+</div>

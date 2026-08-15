@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta
 
-def generate_market_dataset():
+def generate_market_dataset(output_path: str | Path = "data/processed/pricing_dataset.csv", rows: int = 2000):
     np.random.seed(42)
     data = []
     
@@ -28,7 +28,7 @@ def generate_market_dataset():
         "no_power": {"cost": 150, "penalty": 0.65}
     }
     
-    for _ in range(2000):
+    for _ in range(rows):
         model_name = np.random.choice(list(products.keys()))
         info = products[model_name]
         
@@ -81,7 +81,7 @@ def generate_market_dataset():
         })
         
     df = pd.DataFrame(data)
-    output_path = Path("data/processed/pricing_dataset.csv")
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
     print(f"Dataset généré avec défauts multiples : {output_path}")

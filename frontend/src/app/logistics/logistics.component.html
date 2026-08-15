@@ -5,22 +5,22 @@
   <div class="stat-card">
     <div class="stat-icon" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9;">📦</div>
     <div class="stat-value">{{ globalStats.totalPending }}</div>
-    <div class="stat-label">Produits en attente</div>
+    <div class="stat-label">{{ 'logistics.pending' | translate }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">🔧</div>
     <div class="stat-value">{{ globalStats.forRecondition }}</div>
-    <div class="stat-label">À reconditionner</div>
+    <div class="stat-label">{{ 'logistics.toRecondition' | translate }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">🛍️</div>
     <div class="stat-value">{{ globalStats.forResale }}</div>
-    <div class="stat-label">Revente directe</div>
+    <div class="stat-label">{{ 'logistics.directResale' | translate }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">♻️</div>
     <div class="stat-value">{{ globalStats.forRecycle }}</div>
-    <div class="stat-label">Recyclage D3E</div>
+    <div class="stat-label">{{ 'logistics.recycling' | translate }}</div>
   </div>
 </div>
 
@@ -28,21 +28,21 @@
 <div class="platana-card optimizer-card" style="margin-bottom: 2rem;">
   <div class="optimizer-content">
     <div class="optimizer-left">
-      <h3>Optimisation Logistique (Google OR-Tools)</h3>
-      <p>Lance l'algorithme d'allocation combinatoire dynamique basé sur les contraintes réelles des ateliers en base de données.</p>
+      <h3>{{ 'logistics.optimizerTitle' | translate }}</h3>
+      <p>{{ 'logistics.optimizerSub' | translate }}</p>
       <div *ngIf="optimizationDone && optimizationStatus" style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
-        Statut: <strong>{{ optimizationStatus }}</strong> · 
-        Profit total estimé: <strong>{{ totalOptimizationProfit | number:'1.2-2' }} €</strong>
+        {{ 'logistics.status' | translate }} <strong>{{ optimizationStatus }}</strong> ·
+        {{ 'logistics.totalProfit' | translate }} <strong>{{ totalOptimizationProfit | number:'1.2-2' }} €</strong>
       </div>
     </div>
     <div class="optimizer-right">
-      <div *ngIf="optimizationDone" class="opt-badge-done">✅ Allocation calculée ({{ allocations.length }} produits)</div>
+      <div *ngIf="optimizationDone" class="opt-badge-done">{{ tWith('logistics.optimized', { count: allocations.length }) }}</div>
       <button class="btn btn-primary" (click)="runOptimization()" [disabled]="isOptimizing">
         <svg *ngIf="!isOptimizing" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
         <span *ngIf="isOptimizing" class="spin-inline"></span>
-        {{ isOptimizing ? 'Optimisation en cours...' : optimizationDone ? 'Réoptimiser' : 'Lancer l\'optimisation' }}
+        {{ isOptimizing ? ('logistics.optimizing' | translate) : optimizationDone ? ('logistics.reoptimize' | translate) : ('logistics.launchOptimization' | translate) }}
       </button>
     </div>
   </div>
@@ -62,14 +62,14 @@
           <circle cx="12" cy="10" r="3"></circle>
           <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 14 8 14s8-8.5 8-14a8 8 0 0 0-8-8z"></path>
         </svg>
-        Ateliers de Reconditionnement ({{ workshops.length }})
+        {{ tWith('logistics.workshopsTitle', { count: workshops.length }) }}
       </span>
-      <button class="btn btn-primary btn-sm" (click)="openAddModal()">+ Ajouter atelier</button>
+      <button class="btn btn-primary btn-sm" (click)="openAddModal()">{{ 'logistics.addWorkshop' | translate }}</button>
     </div>
 
     <div class="workshop-list">
       <div *ngIf="workshops.length === 0" style="text-align:center; padding: 2rem; opacity: 0.6;">
-        <p>Aucun atelier configuré. Cliquez sur "+ Ajouter atelier" pour commencer.</p>
+        <p>{{ 'logistics.noWorkshops' | translate }}</p>
       </div>
       <div class="workshop-card" *ngFor="let w of workshops" [class.selected]="selectedWorkshop?.id === w.id" (click)="selectWorkshop(w)">
         <div class="workshop-header">
@@ -79,14 +79,14 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span [class]="getStatusBadgeClass(w.status)">{{ getStatusLabel(w.status) }}</span>
-            <button class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" (click)="openEditModal(w, $event)" title="Modifier">✏️</button>
-            <button class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" (click)="deleteWorkshop(w, $event)" title="Supprimer">🗑️</button>
+            <button class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" (click)="openEditModal(w, $event)" [title]="'logistics.editWorkshop' | translate">✏️</button>
+            <button class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" (click)="deleteWorkshop(w, $event)" [title]="'logistics.cancel' | translate">🗑️</button>
           </div>
         </div>
 
         <div class="workshop-metrics">
           <div class="metric">
-            <span class="metric-label">Taux d'occupation</span>
+            <span class="metric-label">{{ 'logistics.occupancyRate' | translate }}</span>
             <div class="metric-bar-wrap">
               <div class="metric-bar" [style.width.%]="w.occupancy" [style.background]="getOccupancyColor(w.occupancy)"></div>
             </div>
@@ -102,28 +102,28 @@
         <div class="workshop-expanded" *ngIf="selectedWorkshop?.id === w.id">
           <div class="expanded-grid">
             <div class="expanded-item">
-              <span class="exp-label">Capacité totale</span>
-              <span class="exp-value">{{ w.capacity }} produits/mois</span>
+              <span class="exp-label">{{ 'logistics.totalCapacity' | translate }}</span>
+              <span class="exp-value">{{ w.capacity }} {{ 'logistics.productsPerMonth' | translate }}</span>
             </div>
             <div class="expanded-item">
-              <span class="exp-label">Coût moyen remise</span>
-              <span class="exp-value">{{ w.avg_cost }} €/produit</span>
+              <span class="exp-label">{{ 'logistics.avgCost' | translate }}</span>
+              <span class="exp-value">{{ w.avg_cost }} {{ 'logistics.perProduct' | translate }}</span>
             </div>
             <div class="expanded-item">
-              <span class="exp-label">Distance depuis Paris</span>
-              <span class="exp-value">{{ w.distance }} km</span>
+              <span class="exp-label">{{ 'logistics.distanceParis' | translate }}</span>
+              <span class="exp-value">{{ w.distance }} {{ 'logistics.km' | translate }}</span>
             </div>
             <div class="expanded-item">
-              <span class="exp-label">Créneaux libres</span>
-              <span class="exp-value" [style.color]="getOccupancyColor(w.occupancy)">{{ w.capacity - Math.round(w.capacity * w.occupancy / 100) }} créneaux</span>
+              <span class="exp-label">{{ 'logistics.freeSlots' | translate }}</span>
+              <span class="exp-value" [style.color]="getOccupancyColor(w.occupancy)">{{ w.capacity - Math.round(w.capacity * w.occupancy / 100) }} {{ 'logistics.slots' | translate }}</span>
             </div>
             <div class="expanded-item">
-              <span class="exp-label">Seuil profit min.</span>
+              <span class="exp-label">{{ 'logistics.minProfitThreshold' | translate }}</span>
               <span class="exp-value" style="color: var(--accent-yellow);">≥ {{ w.min_profit_threshold }} €</span>
             </div>
             <div class="expanded-item">
-              <span class="exp-label">Max par batch</span>
-              <span class="exp-value">{{ w.max_items_per_batch }} produits</span>
+              <span class="exp-label">{{ 'logistics.maxPerBatch' | translate }}</span>
+              <span class="exp-value">{{ w.max_items_per_batch }} {{ 'logistics.productsPerMonth' | translate }}</span>
             </div>
           </div>
         </div>
@@ -141,31 +141,31 @@
           <circle cx="5.5" cy="18.5" r="2.5"></circle>
           <circle cx="18.5" cy="18.5" r="2.5"></circle>
         </svg>
-        Plan d'Allocation &amp; Expédition
+                {{ 'logistics.allocationPlan' | translate }}
       </span>
       <div class="cost-summary">
-        <span class="cost-total">{{ globalStats.totalTransportCost | number }} € coût transport estimé</span>
+        <span class="cost-total">{{ globalStats.totalTransportCost | number }} € {{ 'logistics.estTransportCost' | translate }}</span>
       </div>
     </div>
 
     <div *ngIf="!optimizationDone && allocations.length === 0" style="text-align:center; padding: 3rem; opacity: 0.6;">
       <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">🤖</p>
-      <p>Lancez l'optimisation pour voir les allocations calculées par l'IA.</p>
+      <p>{{ 'logistics.launchToSee' | translate }}</p>
     </div>
 
     <div *ngIf="optimizationDone && allocations.length === 0" style="text-align:center; padding: 2rem; opacity: 0.6;">
-      <p>Aucune allocation trouvée. Vérifiez les contraintes des ateliers (seuil de profit minimum).</p>
+      <p>{{ 'logistics.noAllocation' | translate }}</p>
     </div>
 
     <div class="platana-table-container" *ngIf="allocations.length > 0">
       <table class="platana-table">
         <thead>
           <tr>
-            <th>Produit</th>
-            <th>Décision</th>
-            <th>Atelier / Canal</th>
-            <th>Délai</th>
-            <th>Coût</th>
+            <th>{{ 'logistics.product' | translate }}</th>
+            <th>{{ 'logistics.decision' | translate }}</th>
+            <th>{{ 'logistics.workshopChannel' | translate }}</th>
+            <th>{{ 'logistics.delay' | translate }}</th>
+            <th>{{ 'logistics.cost' | translate }}</th>
           </tr>
         </thead>
         <tbody>
@@ -188,7 +188,7 @@
             </td>
             <td>
               <strong>{{ a.totalCost | number:'1.2-2' }} €</strong>
-              <span style="display: block; font-size: 0.72rem; color: var(--light-text-muted);">transport: {{ a.transportCost }}€</span>
+              <span style="display: block; font-size: 0.72rem; color: var(--light-text-muted);">{{ 'logistics.transport' | translate }} {{ a.transportCost }}€</span>
             </td>
           </tr>
         </tbody>
@@ -201,74 +201,74 @@
 <div class="modal-backdrop" *ngIf="showWorkshopModal" (click)="closeModal()">
   <div class="modal-box" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>{{ isEditMode ? 'Modifier l\'atelier' : 'Nouvel Atelier' }}</h3>
+      <h3>{{ isEditMode ? ('logistics.editWorkshop' | translate) : ('logistics.newWorkshop' | translate) }}</h3>
       <button class="icon-btn-close" (click)="closeModal()">✕</button>
     </div>
     <div class="modal-body">
       <div class="modal-grid-2">
         <div class="form-group">
-          <label class="form-label">Nom</label>
+          <label class="form-label">{{ 'logistics.name' | translate }}</label>
           <input type="text" class="form-input" [(ngModel)]="editingWorkshop.name" placeholder="Atelier Platana Nord">
         </div>
         <div class="form-group">
-          <label class="form-label">Statut</label>
+          <label class="form-label">{{ 'logistics.statusLabel' | translate }}</label>
           <select class="form-select" [(ngModel)]="editingWorkshop.status">
-            <option value="available">Disponible</option>
-            <option value="busy">Chargé</option>
-            <option value="full">Complet</option>
+            <option value="available">{{ 'logistics.status.available' | translate }}</option>
+            <option value="busy">{{ 'logistics.status.busy' | translate }}</option>
+            <option value="full">{{ 'logistics.status.full' | translate }}</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Ville</label>
+          <label class="form-label">{{ 'logistics.city' | translate }}</label>
           <input type="text" class="form-input" [(ngModel)]="editingWorkshop.city" placeholder="Lyon">
         </div>
         <div class="form-group">
-          <label class="form-label">Région</label>
+          <label class="form-label">{{ 'logistics.region' | translate }}</label>
           <input type="text" class="form-input" [(ngModel)]="editingWorkshop.region" placeholder="Auvergne-Rhône-Alpes">
         </div>
       </div>
 
       <hr style="border-color: var(--border); margin: 1rem 0;">
-      <p style="font-size: 0.85rem; font-weight: 600; color: var(--accent-yellow); margin-bottom: 0.75rem;">⚙️ Contraintes logistiques (utilisées par OR-Tools)</p>
+      <p style="font-size: 0.85rem; font-weight: 600; color: var(--accent-yellow); margin-bottom: 0.75rem;">{{ 'logistics.constraints' | translate }}</p>
 
       <div class="modal-grid-2">
         <div class="form-group">
-          <label class="form-label">Capacité totale (produits/mois)</label>
+          <label class="form-label">{{ 'logistics.totalCapacityLabel' | translate }}</label>
           <input type="number" class="form-input" [(ngModel)]="editingWorkshop.capacity" min="1">
         </div>
         <div class="form-group">
-          <label class="form-label">Taux d'occupation (%)</label>
+          <label class="form-label">{{ 'logistics.occupancyLabel' | translate }}</label>
           <input type="number" class="form-input" [(ngModel)]="editingWorkshop.occupancy" min="0" max="100">
         </div>
         <div class="form-group">
-          <label class="form-label">Coût moyen remise (€/produit)</label>
+          <label class="form-label">{{ 'logistics.avgCostLabel' | translate }}</label>
           <input type="number" class="form-input" [(ngModel)]="editingWorkshop.avg_cost" min="0">
         </div>
         <div class="form-group">
-          <label class="form-label">Distance depuis Paris (km)</label>
+          <label class="form-label">{{ 'logistics.distanceLabel' | translate }}</label>
           <input type="number" class="form-input" [(ngModel)]="editingWorkshop.distance" min="0">
         </div>
         <div class="form-group">
-          <label class="form-label">Seuil profit minimum (€)</label>
+          <label class="form-label">{{ 'logistics.minProfitLabel' | translate }}</label>
           <input type="number" class="form-input" [(ngModel)]="editingWorkshop.min_profit_threshold" min="0" step="5">
-          <small style="color: var(--light-text-muted); font-size: 0.75rem;">Seuls les produits avec profit ≥ ce seuil seront alloués.</small>
+          <small style="color: var(--light-text-muted); font-size: 0.75rem;">{{ 'logistics.minProfitHint' | translate }}</small>
         </div>
         <div class="form-group">
-          <label class="form-label">Max produits par batch</label>
+          <label class="form-label">{{ 'logistics.maxPerBatchLabel' | translate }}</label>
           <input type="number" class="form-input" [(ngModel)]="editingWorkshop.max_items_per_batch" min="1">
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Spécialités (séparées par virgule)</label>
+        <label class="form-label">{{ 'logistics.specialties' | translate }}</label>
         <input type="text" class="form-input" [(ngModel)]="workshopSpecialtiesInput" placeholder="Smartphone, Ordinateur, Tablette">
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" (click)="closeModal()" [disabled]="isSavingWorkshop">Annuler</button>
+      <button class="btn btn-secondary" (click)="closeModal()" [disabled]="isSavingWorkshop">{{ 'logistics.cancel' | translate }}</button>
       <button class="btn btn-primary" (click)="saveWorkshop()" [disabled]="isSavingWorkshop">
         <span *ngIf="isSavingWorkshop" class="btn-spinner"></span>
-        {{ isSavingWorkshop ? 'Enregistrement...' : isEditMode ? 'Mettre à jour' : 'Créer l\'atelier' }}
+        {{ isSavingWorkshop ? ('logistics.saving' | translate) : isEditMode ? ('logistics.update' | translate) : ('logistics.createWorkshop' | translate) }}
       </button>
     </div>
   </div>
